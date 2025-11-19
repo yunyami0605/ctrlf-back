@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Add issue or PR to org project
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_FOR_PROJECT }}
           PROJECT_ID: PVT_kwDODkqDZs4BHdlg
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
