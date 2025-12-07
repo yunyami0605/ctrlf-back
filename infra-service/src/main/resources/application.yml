@@ -1,0 +1,46 @@
+server:
+  port: 9003
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/db
+    username: postgres
+    password: postgres
+  jpa:
+    properties:
+      hibernate:
+        default_schema: infra
+        format_sql: true
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    schemas: infra
+    default-schema: infra
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+keycloak:
+  admin:
+    base-url: http://localhost:8080
+    realm: ctrlf
+    client-id: infra-admin
+    client-secret: changeme
+
+# Swagger/OpenAPI 설정
+app:
+  api:
+    title: Infra Service API
+    description: Infra service endpoints for Keycloak admin operations
+    security:
+      enabled: false

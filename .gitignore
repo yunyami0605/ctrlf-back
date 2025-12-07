@@ -1,0 +1,68 @@
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE / Editors =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+
+# ===== Build / Gradle =====
+.gradle/
+build/
+out/
+bin/
+**/build/
+**/out/
+**/bin/
+# Maven (just in case)
+target/
+
+# Keep Gradle Wrapper (do NOT ignore)
+!gradle/wrapper/gradle-wrapper.jar
+
+# ===== Logs / Temp =====
+logs/
+*.log
+*.tmp
+*.temp
+
+# ===== Spring Boot local config =====
+application-local.yml
+application-local.yaml
+application-local.properties
+application-*.local.yml
+application-*.local.yaml
+application-*.local.properties
+
+# Dotenv
+.env
+.env.local
+*.env
+*.env.local
+.env.*.local
+
+# ===== Test reports / Coverage =====
+**/reports/
+**/jacoco/
+*.exec
+
+# ===== Docker / Local runtime data =====
+docker-compose.override.yml
+.docker/
+postgres-data/
+
+# ===== Databases (local) =====
+*.db
+*.sqlite3
+
+# ===== Misc =====
+*.swp
+*.swo
+*~
+*.orig
