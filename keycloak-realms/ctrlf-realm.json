@@ -2,6 +2,33 @@
   "realm": "ctrlf",
   "enabled": true,
   "displayName": "CTRL-F",
+  "loginTheme": "ctrlf-theme",
+
+  "roles": {
+    "realm": [
+      {
+        "name": "SYSTEM_ADMIN",
+        "description": "전체 시스템 관리자"
+      },
+      {
+        "name": "COMPLAINT_MANAGER",
+        "description": "신고 관리자"
+      },
+      {
+        "name": "VIDEO_CREATOR",
+        "description": "교육 영상 제작자"
+      },
+      {
+        "name": "CONTENTS_REVIEWER",
+        "description": "콘텐츠 검토자"
+      },
+      {
+        "name": "EMPLOYEE",
+        "description": "일반 직원"
+      }
+    ]
+  },
+
   "clients": [
     {
       "clientId": "infra-admin",
@@ -17,20 +44,84 @@
       "protocol": "openid-connect",
       "publicClient": true,
       "standardFlowEnabled": true,
-      "redirectUris": ["http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"]
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ]
     }
   ],
+
   "users": [
     {
       "username": "user1",
-      "email": "user1@example.com",
+      "email": "user1@a.com",
       "enabled": true,
       "firstName": "유저",
       "lastName": "원",
       "credentials": [
-        { "type": "password", "value": "Passw0rd!", "temporary": false }
-      ]
+        {
+          "type": "password",
+          "value": "12345",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "EMPLOYEE"
+      ],
+      "attributes": {
+        "employeeNo": ["1234"],
+        "koreanName": ["유저 원"],
+        "gender": ["F"],
+        "age": ["29"],
+        "tenureYears": ["3"],
+        "hireYear": ["2022"],
+        "position": ["사원"],
+        "team": ["인사팀"],
+        "overtimeHours": ["213"],
+        "performanceScore": ["42"],
+        "unusedVacationDays": ["14"],
+        "salary": ["66002987"],
+        "companyEmail": ["user1@a.com"],
+        "residentRegistrationNumber": ["123456-1234567"],
+        "phoneNumber": ["010-1234-5678"]
+      }
+    },
+    {
+      "username": "admin1",
+      "email": "admin1@example.com",
+      "enabled": true,
+      "firstName": "시스템",
+      "lastName": "관리자",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "54321",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "EMPLOYEE",
+        "SYSTEM_ADMIN"
+      ],
+      "attributes": {
+        "employeeNo": ["2025-00002"],
+        "koreanName": ["시스템 관리자"],
+        "gender": ["M"],
+        "age": ["32"],
+        "tenureYears": ["5"],
+        "hireYear": ["2020"],
+        "position": ["과장"],
+        "team": ["보안운영팀"],
+        "overtimeHours": ["8.0"],
+        "performanceScore": ["4.8"],
+        "unusedVacationDays": ["2"],
+        "salary": ["60000000"],
+        "companyEmail": ["admin1@example.com"],
+        "residentRegistrationNumber": ["000000-0000001"],
+        "phoneNumber": ["010-1111-2222"]
+      }
     }
   ]
 }

@@ -36,21 +36,38 @@ services:
     restart: unless-stopped
   # Keycloak 서버
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    # 프론트에서 쓰던 버전
+    image: quay.io/keycloak/keycloak:24.0
     container_name: platform-keycloak
     ports:
       - "8080:8080"
     volumes:
+      # realm import
       - ./keycloak-realms:/opt/keycloak/data/import:ro
+      # 커스텀 로그인 테마
+      - ./keycloak-themes/ctrlf-theme:/opt/keycloak/themes/ctrlf-theme
     environment:
+      # DB 설정
       - KC_DB=postgres
       - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
       - KC_DB_USERNAME=keycloak
       - KC_DB_PASSWORD=keycloak
+
+      # 관리자 계정
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=admin
+
+      # 헬스 체크
       - KC_HEALTH_ENABLED=true
-    command: ["start-dev", "--import-realm"]
+
+      # 테마 설정
+      - KC_HOSTNAME=localhost
+      - KC_SPI_THEME_DEFAULT_LOGIN_THEME=ctrlf-theme
+      - KC_SPI_THEME_CACHE_TEMPLATES=false
+      - KC_SPI_THEME_CACHE_THEMES=false
+    command:
+      - start-dev
+      - --import-realm
     depends_on:
       keycloak-db:
         condition: service_healthy
