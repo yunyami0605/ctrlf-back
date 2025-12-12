@@ -6,13 +6,15 @@ spring:
     url: jdbc:postgresql://localhost:5432/db
     username: postgres
     password: postgres
+
   jpa:
-    properties:
-      hibernate:
-        default_schema: infra
-        format_sql: true
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate.default_schema: infra
+      hibernate.format_sql: true
+      hibernate.query.escapeCharacter: '\\'
+
   flyway:
     enabled: true
     schemas: infra
@@ -48,3 +50,9 @@ app:
   s3:
     bucket: ctrl-s3
     ttlSeconds: 600
+
+  rag:
+    ai:
+      base-url: http://localhost:8000
+      token: changeme # 선택
+      timeout-seconds: 10

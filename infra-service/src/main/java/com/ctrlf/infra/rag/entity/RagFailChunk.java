@@ -1,4 +1,4 @@
-package com.ctrlf.infra.entity;
+package com.ctrlf.infra.rag.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

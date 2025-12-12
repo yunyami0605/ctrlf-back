@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS "rag_document" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "title" varchar(255),
   "domain" varchar(50),
-  "uploader_uuid" char(36),
+  "uploader_uuid" varchar(36),
   "source_url" varchar(255),
   "created_at" timestamp
 );

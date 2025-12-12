@@ -253,7 +253,6 @@ public class EducationService {
         if (affected == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "education not found");
         }
-        return new MutationResponse<>(id);
     }
     
     /**

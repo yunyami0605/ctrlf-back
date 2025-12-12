@@ -1,4 +1,4 @@
-package com.ctrlf.infra.entity;
+package com.ctrlf.infra.rag.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,7 +33,7 @@ public class RagDocument {
     @Column(name = "domain", length = 50)
     private String domain;
 
-    /** 업로더 UUID(문자열) - 길이 36 (DB: varchar(36)) */
+    /** 유저 UUID = 업로더 UUID(문자열) - 길이 36 (DB: varchar(36)) */
     @Column(name = "uploader_uuid", length = 36)
     private String uploaderUuid;
 

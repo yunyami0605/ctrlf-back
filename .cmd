@@ -1,11 +1,13 @@
 docker exec -it platform-postgres psql -U postgres -d db
 
 # 실행
-AWS_PROFILE=ctrl-s3 ./gradlew :chat-service:bootRun
-AWS_PROFILE=ctrl-s3 ./gradlew :education-service:bootRun
-AWS_PROFILE=ctrl-s3 ./gradlew :infra-service:bootRun
-AWS_PROFILE=ctrl-s3 ./gradlew :chat-service:bootRun
-AWS_PROFILE=ctrl-s3 ./gradlew :api-gateway:bootRun
+AWS_PROFILE=sk_4th_team04 ./gradlew :chat-service:bootRun
+AWS_PROFILE=sk_4th_team04 ./gradlew :education-service:bootRun
+AWS_PROFILE=sk_4th_team04 ./gradlew :infra-service:bootRun
+AWS_PROFILE=sk_4th_team04 ./gradlew :chat-service:bootRun
+AWS_PROFILE=sk_4th_team04 ./gradlew :api-gateway:bootRun
+
+./gradlew clean build :infra-service:bootRun
  
 # DB (Docker Compose)
 
