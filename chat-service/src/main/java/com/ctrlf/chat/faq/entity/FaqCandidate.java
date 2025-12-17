@@ -1,11 +1,6 @@
 package com.ctrlf.chat.faq.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Getter;
@@ -19,34 +14,56 @@ import lombok.Setter;
 @NoArgsConstructor
 public class FaqCandidate {
 
-    /** FAQ 후보 질문 PK */
+    /** FAQ 후보 PK */
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
-    /** 원본 질문(사용자 입력) */
-    @Column(name = "question", columnDefinition = "text")
-    private String question;
+    /** 대표 질문(canonical question) */
+    @Column(name = "canonical_question", columnDefinition = "text", nullable = false)
+    private String canonicalQuestion;
 
-    /** 도메인 분류(LLM 분류 결과 등) */
-    @Column(name = "domain")
+    /** 도메인 */
+    @Column(name = "domain", nullable = false)
     private String domain;
 
-    /** 등장 빈도 */
-    @Column(name = "frequency")
-    private Integer frequency;
+    /** 최근 7일 질문 수 */
+    @Column(name = "question_count_7d")
+    private Integer questionCount7d;
 
-    /** 추천 점수(double) */
-    @Column(name = "score")
-    private Double score;
+    /** 최근 30일 질문 수 */
+    @Column(name = "question_count_30d")
+    private Integer questionCount30d;
 
-    /** 비활성 여부 */
-    @Column(name = "is_disabled")
-    private Boolean isDisabled;
+    /** 의도 신뢰도 평균 */
+    @Column(name = "avg_intent_confidence")
+    private Double avgIntentConfidence;
 
-    /** 수집 시각 */
-    @Column(name = "created_at")
-    private Instant createdAt;
+    /** PII 감지 여부 */
+    @Column(name = "pii_detected", nullable = false)
+    private Boolean piiDetected = false;
+
+    /** 후보 점수 */
+    @Column(name = "score_candidate")
+    private Double scoreCandidate;
+
+    /** 후보 상태 */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private CandidateStatus status = CandidateStatus.NEW;
+
+    /** 마지막 질문 시각 */
+    @Column(name = "last_asked_at")
+    private Instant lastAskedAt;
+
+    /** 생성 시각 */
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt = Instant.now();
+
+    public enum CandidateStatus {
+        NEW,
+        ELIGIBLE,
+        EXCLUDED
+    }
 }
-

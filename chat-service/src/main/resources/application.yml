@@ -38,9 +38,14 @@ management:
       probes:
         enabled: true
 
+ai:
+  gateway:
+    url: http://localhost:8000
+
 app:
   api:
     title: Chat Service API
     description: Chat endpoints with JWT authorize
     security:
       enabled: true
+

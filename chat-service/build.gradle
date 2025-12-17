@@ -14,6 +14,9 @@ dependencies {
   implementation 'org.springframework.boot:spring-boot-starter-security:3.3.3'
   implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server:3.3.3'
 
+  // 🔽 WebClient / Mono 사용을 위한 WebFlux (필수)
+  implementation 'org.springframework.boot:spring-boot-starter-webflux:3.3.3'
+
   implementation 'org.flywaydb:flyway-core'
   implementation 'org.flywaydb:flyway-database-postgresql:10.10.0'
   implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'

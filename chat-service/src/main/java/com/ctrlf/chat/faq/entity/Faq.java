@@ -1,11 +1,6 @@
 package com.ctrlf.chat.faq.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.Getter;
@@ -19,38 +14,41 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Faq {
 
-    /** FAQ PK */
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
-    /** 질문 본문 */
     @Column(name = "question", columnDefinition = "text")
     private String question;
 
-    /** 공식 답변 */
     @Column(name = "answer", columnDefinition = "text")
     private String answer;
 
-    /** 도메인 분류(예: HR/보안/직무 등) */
     @Column(name = "domain")
     private String domain;
 
-    /** 활성 여부 */
     @Column(name = "is_active")
     private Boolean isActive;
 
-    /** 노출 우선순위 */
     @Column(name = "priority")
     private Integer priority;
 
-    /** 생성 시각 */
+    // ✅ 추가: UI 카테고리 FK 역할 (실제 FK 제약은 MVP에선 생략 가능)
+    @Column(name = "ui_category_id", columnDefinition = "uuid")
+    private UUID uiCategoryId;
+
+    // ✅ 추가: 카테고리 정리 필요 플래그
+    @Column(name = "needs_recategorization")
+    private Boolean needsRecategorization;
+
+    // ✅ 추가: 게시 시각(대시보드/정렬)
+    @Column(name = "published_at")
+    private Instant publishedAt;
+
     @Column(name = "created_at")
     private Instant createdAt;
 
-    /** 수정 시각 */
     @Column(name = "updated_at")
     private Instant updatedAt;
 }
-
