@@ -11,14 +11,13 @@ import org.springframework.data.repository.query.Param;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> {
 
-    // ✅ 세션 전체 메시지 전체 조회(기존 history 용)
     List<ChatMessage> findAllBySessionIdOrderByCreatedAtAsc(UUID sessionId);
 
-    // ✅ Retry/Regen용: 세션 최신 메시지
     Optional<ChatMessage> findTopBySessionIdOrderByCreatedAtDesc(UUID sessionId);
 
-    // ✅ ✅ ✅ 커서 기반(키셋) 페이지 조회 (Native Query)
-    // 정렬: 최신 -> 과거 (DESC)
+    // ✅ 추가: 해당 세션에서 가장 최근 user 메시지 1개
+    Optional<ChatMessage> findTopBySessionIdAndRoleOrderByCreatedAtDesc(UUID sessionId, String role);
+
     @Query(
         value = """
             SELECT *
