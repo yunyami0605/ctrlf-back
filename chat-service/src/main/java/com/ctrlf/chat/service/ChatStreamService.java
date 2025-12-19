@@ -4,7 +4,9 @@ import com.ctrlf.chat.ai.search.dto.ChatCompletionRequest;
 import com.ctrlf.chat.ai.search.dto.ChatCompletionRequest.Message;
 import com.ctrlf.chat.ai.search.facade.ChatAiFacade;
 import com.ctrlf.chat.entity.ChatMessage;
+import com.ctrlf.chat.entity.ChatSession;
 import com.ctrlf.chat.repository.ChatMessageRepository;
+import com.ctrlf.chat.repository.ChatSessionRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -22,6 +24,7 @@ public class ChatStreamService {
 
     private final ChatAiFacade chatAiFacade;
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatSessionRepository chatSessionRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ExecutorService executor = Executors.newCachedThreadPool();
@@ -42,7 +45,13 @@ public class ChatStreamService {
 
                 UUID sessionId = assistant.getSessionId();
 
-                // 3) 해당 세션의 가장 최근 user 메시지
+                // 3) 세션 정보 조회 (domain, userUuid)
+                ChatSession session = chatSessionRepository.findActiveById(sessionId);
+                if (session == null) {
+                    throw new IllegalArgumentException("세션을 찾을 수 없습니다: " + sessionId);
+                }
+
+                // 4) 해당 세션의 가장 최근 user 메시지
                 ChatMessage lastUser =
                     chatMessageRepository
                         .findTopBySessionIdAndRoleOrderByCreatedAtDesc(
@@ -51,19 +60,19 @@ public class ChatStreamService {
                         )
                         .orElseThrow();
 
-                // 4) AI 스트리밍 요청 생성
+                // 5) AI 스트리밍 요청 생성
                 ChatCompletionRequest req =
                     new ChatCompletionRequest(
                         sessionId,
-                        UUID.randomUUID(), // TODO: userId 전달 구조 정리 가능
+                        session.getUserUuid(),
                         "EMPLOYEE",
-                        null,
-                        null,
+                        session.getDomain(),  // department
+                        session.getDomain(),  // domain
                         "WEB",
                         List.of(new Message("user", lastUser.getContent()))
                     );
 
-                // 5) AI NDJSON 스트림 구독
+                // 6) AI NDJSON 스트림 구독
                 Flux<String> aiStream = chatAiFacade.streamChat(req);
 
                 StringBuilder answerBuf = new StringBuilder();

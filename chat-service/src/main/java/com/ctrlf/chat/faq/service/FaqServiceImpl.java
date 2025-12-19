@@ -36,14 +36,17 @@ public class FaqServiceImpl implements FaqService {
 
     @Override
     public UUID create(FaqCreateRequest request) {
+        Instant now = Instant.now();
         Faq faq = new Faq();
         faq.setQuestion(request.getQuestion());
         faq.setAnswer(request.getAnswer());
         faq.setDomain(request.getDomain());
         faq.setPriority(request.getPriority());
         faq.setIsActive(true);
-        faq.setCreatedAt(Instant.now());
-        faq.setUpdatedAt(Instant.now());
+        faq.setNeedsRecategorization(false); // 기본값 설정
+        faq.setPublishedAt(now); // 기본값 설정
+        faq.setCreatedAt(now);
+        faq.setUpdatedAt(now);
 
         return faqRepository.save(faq).getId();
     }

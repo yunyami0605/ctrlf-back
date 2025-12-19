@@ -9,7 +9,7 @@ import java.util.UUID;
 /**
  * 채팅 메시지 관련 비즈니스 로직 인터페이스
  * 
- * <p>메시지 전송, 조회, 재시도, 재생성 등의 기능을 정의합니다.</p>
+ * <p>메시지 전송, 조회, 재시도 등의 기능을 정의합니다.</p>
  * 
  * @author CtrlF Team
  * @since 1.0.0
@@ -52,13 +52,4 @@ public interface ChatMessageService {
      * @return 재시도 결과 메시지
      */
     ChatMessage retryMessage(UUID sessionId, UUID messageId);
-
-    /**
-     * 메시지 재생성
-     * 
-     * @param sessionId 세션 ID
-     * @param messageId 재생성할 메시지 ID
-     * @return 재생성된 메시지
-     */
-    ChatMessage regenMessage(UUID sessionId, UUID messageId);
 }

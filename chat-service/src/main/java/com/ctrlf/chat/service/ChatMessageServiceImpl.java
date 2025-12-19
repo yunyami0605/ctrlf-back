@@ -6,7 +6,9 @@ import com.ctrlf.chat.dto.request.ChatMessageSendRequest;
 import com.ctrlf.chat.dto.response.ChatMessageCursorResponse;
 import com.ctrlf.chat.dto.response.ChatMessageSendResponse;
 import com.ctrlf.chat.entity.ChatMessage;
+import com.ctrlf.chat.entity.ChatSession;
 import com.ctrlf.chat.repository.ChatMessageRepository;
+import com.ctrlf.chat.repository.ChatSessionRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatMessageServiceImpl implements ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatSessionRepository chatSessionRepository;
     private final ChatAiClient chatAiClient;
 
     @Override
@@ -108,22 +111,26 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         int safeSize = Math.max(1, Math.min(size, 100));
         int limit = safeSize + 1;
 
-        Instant cursorCreatedAt = null;
-        UUID cursorId = null;
-
+        List<ChatMessage> rows;
+        
         if (cursor != null && !cursor.isBlank()) {
             ParsedCursor parsed = ParsedCursor.parse(cursor);
-            cursorCreatedAt = parsed.createdAt();
-            cursorId = parsed.id();
-        }
-
-        List<ChatMessage> rows =
-            chatMessageRepository.findNextPageBySessionId(
+            Instant cursorCreatedAt = parsed.createdAt();
+            UUID cursorId = parsed.id();
+            
+            rows = chatMessageRepository.findNextPageBySessionId(
                 sessionId,
                 cursorCreatedAt,
                 cursorId,
                 limit
             );
+        } else {
+            // 첫 페이지 조회
+            rows = chatMessageRepository.findFirstPageBySessionId(
+                sessionId,
+                limit
+            );
+        }
 
         boolean hasNext = rows.size() > safeSize;
         List<ChatMessage> pageDesc =
@@ -153,12 +160,70 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Override
     public ChatMessage retryMessage(UUID sessionId, UUID messageId) {
-        throw new UnsupportedOperationException("retryMessage not implemented");
-    }
-
-    @Override
-    public ChatMessage regenMessage(UUID sessionId, UUID messageId) {
-        throw new UnsupportedOperationException("regenMessage not implemented");
+        // 1️⃣ 재시도할 메시지 조회 (assistant 메시지여야 함)
+        ChatMessage targetMessage = chatMessageRepository.findById(messageId)
+            .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다: " + messageId));
+        
+        if (!"assistant".equals(targetMessage.getRole())) {
+            throw new IllegalArgumentException("재시도는 assistant 메시지만 가능합니다.");
+        }
+        
+        if (!sessionId.equals(targetMessage.getSessionId())) {
+            throw new IllegalArgumentException("세션 ID가 일치하지 않습니다.");
+        }
+        
+        // 2️⃣ 세션 정보 조회 (도메인, 사용자 정보)
+        ChatSession session = chatSessionRepository.findActiveById(sessionId);
+        if (session == null) {
+            throw new IllegalArgumentException("세션을 찾을 수 없습니다: " + sessionId);
+        }
+        
+        // 3️⃣ 재시도할 메시지의 이전 user 메시지 찾기
+        List<ChatMessage> allMessages = 
+            chatMessageRepository.findAllBySessionIdOrderByCreatedAtAsc(sessionId);
+        
+        ChatMessage userMessage = null;
+        for (int i = 0; i < allMessages.size(); i++) {
+            if (allMessages.get(i).getId().equals(messageId)) {
+                // targetMessage 이전의 user 메시지 찾기
+                for (int j = i - 1; j >= 0; j--) {
+                    if ("user".equals(allMessages.get(j).getRole())) {
+                        userMessage = allMessages.get(j);
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        
+        if (userMessage == null) {
+            throw new IllegalArgumentException("재시도할 user 메시지를 찾을 수 없습니다.");
+        }
+        
+        // 4️⃣ AI Gateway에 재요청
+        ChatAiResponse aiResponse;
+        try {
+            aiResponse = chatAiClient.ask(
+                sessionId,
+                session.getUserUuid(),
+                "EMPLOYEE",   // TODO: JWT에서 추출
+                null,         // department
+                session.getDomain(),
+                "WEB",
+                userMessage.getContent()
+            );
+        } catch (Exception e) {
+            log.error("[AI] retry failed", e);
+            throw new RuntimeException("AI 재시도 요청 실패: " + e.getMessage(), e);
+        }
+        
+        // 5️⃣ 기존 메시지 업데이트
+        targetMessage.updateContent(aiResponse.getAnswer());
+        targetMessage.setTokensIn(aiResponse.getPromptTokens());
+        targetMessage.setTokensOut(aiResponse.getCompletionTokens());
+        targetMessage.setLlmModel(aiResponse.getModel());
+        
+        return chatMessageRepository.save(targetMessage);
     }
 
     /* ===============================

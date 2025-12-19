@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * 채팅 메시지 엔티티
@@ -18,6 +19,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "chat_message", schema = "chat")
 @Getter
+@Setter
 @NoArgsConstructor
 public class ChatMessage {
 

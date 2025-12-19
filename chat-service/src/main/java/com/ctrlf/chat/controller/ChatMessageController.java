@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 채팅 메시지 관련 REST API 컨트롤러
  * 
- * <p>채팅 메시지의 전송, 조회, 재시도, 재생성 등의 기능을 제공합니다.</p>
+ * <p>채팅 메시지의 전송, 조회, 재시도 등의 기능을 제공합니다.</p>
  * 
  * @author CtrlF Team
  * @since 1.0.0
@@ -86,25 +86,6 @@ public class ChatMessageController {
     ) {
         return ResponseEntity.ok(
             chatMessageService.retryMessage(sessionId, messageId)
-        );
-    }
-
-    /**
-     * 메시지 재생성
-     * 
-     * <p>기존 메시지를 기반으로 새로운 AI 응답을 생성합니다.</p>
-     * 
-     * @param sessionId 세션 ID
-     * @param messageId 재생성할 메시지 ID
-     * @return 재생성된 메시지
-     */
-    @PostMapping("/sessions/{sessionId}/messages/{messageId}/regen")
-    public ResponseEntity<ChatMessage> regenMessage(
-        @PathVariable UUID sessionId,
-        @PathVariable UUID messageId
-    ) {
-        return ResponseEntity.ok(
-            chatMessageService.regenMessage(sessionId, messageId)
         );
     }
 }

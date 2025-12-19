@@ -23,9 +23,23 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
             SELECT *
             FROM chat.chat_message m
             WHERE m.session_id = :sessionId
+            ORDER BY m.created_at DESC, m.id DESC
+            LIMIT :limit
+            """,
+        nativeQuery = true
+    )
+    List<ChatMessage> findFirstPageBySessionId(
+        @Param("sessionId") UUID sessionId,
+        @Param("limit") int limit
+    );
+
+    @Query(
+        value = """
+            SELECT *
+            FROM chat.chat_message m
+            WHERE m.session_id = :sessionId
               AND (
-                :cursorCreatedAt IS NULL
-                OR m.created_at < :cursorCreatedAt
+                m.created_at < :cursorCreatedAt
                 OR (m.created_at = :cursorCreatedAt AND m.id < :cursorId)
               )
             ORDER BY m.created_at DESC, m.id DESC
