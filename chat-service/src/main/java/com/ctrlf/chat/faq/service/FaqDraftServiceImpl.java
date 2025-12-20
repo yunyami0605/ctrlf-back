@@ -47,6 +47,16 @@ public class FaqDraftServiceImpl implements FaqDraftService {
         FaqDraft draft = faqDraftRepository.findById(draftId)
             .orElseThrow(() -> new IllegalArgumentException("FAQ 초안이 없습니다."));
 
+        // 이미 승인된 Draft는 다시 승인할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.PUBLISHED) {
+            throw new IllegalStateException("이미 승인된 FAQ 초안입니다.");
+        }
+
+        // 이미 반려된 Draft는 승인할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.REJECTED) {
+            throw new IllegalStateException("반려된 FAQ 초안은 승인할 수 없습니다.");
+        }
+
         // 게시 FAQ 생성
         Faq faq = new Faq();
         faq.setQuestion(question);
@@ -76,6 +86,16 @@ public class FaqDraftServiceImpl implements FaqDraftService {
     public void reject(UUID draftId, UUID reviewerId, String reason) {
         FaqDraft draft = faqDraftRepository.findById(draftId)
             .orElseThrow(() -> new IllegalArgumentException("FAQ 초안이 없습니다."));
+
+        // 이미 승인된 Draft는 반려할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.PUBLISHED) {
+            throw new IllegalStateException("이미 승인된 FAQ 초안은 반려할 수 없습니다.");
+        }
+
+        // 이미 반려된 Draft는 다시 반려할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.REJECTED) {
+            throw new IllegalStateException("이미 반려된 FAQ 초안입니다.");
+        }
 
         draft.reject(reviewerId);
 

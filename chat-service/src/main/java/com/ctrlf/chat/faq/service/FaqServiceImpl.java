@@ -93,12 +93,17 @@ public class FaqServiceImpl implements FaqService {
             .orElseThrow(() -> new IllegalArgumentException("FAQ 후보가 존재하지 않습니다."));
 
         // PII / 의도 신뢰도 정책
-        if (Boolean.TRUE.equals(candidate.getPiiDetected())
-            || candidate.getAvgIntentConfidence() == null
-            || candidate.getAvgIntentConfidence() < 0.7) {
-
+        if (Boolean.TRUE.equals(candidate.getPiiDetected())) {
             candidate.setStatus(FaqCandidate.CandidateStatus.EXCLUDED);
-            return null;
+            throw new IllegalArgumentException("PII가 감지된 FAQ 후보는 Draft를 생성할 수 없습니다.");
+        }
+
+        if (candidate.getAvgIntentConfidence() == null || candidate.getAvgIntentConfidence() < 0.7) {
+            candidate.setStatus(FaqCandidate.CandidateStatus.EXCLUDED);
+            throw new IllegalArgumentException(
+                String.format("의도 신뢰도가 부족합니다. (현재: %s, 최소 요구: 0.7)", 
+                    candidate.getAvgIntentConfidence())
+            );
         }
 
         // ======================================
@@ -147,6 +152,16 @@ public class FaqServiceImpl implements FaqService {
         FaqDraft draft = faqDraftRepository.findById(draftId)
             .orElseThrow(() -> new IllegalArgumentException("FAQ 초안이 존재하지 않습니다."));
 
+        // 이미 승인된 Draft는 다시 승인할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.PUBLISHED) {
+            throw new IllegalStateException("이미 승인된 FAQ 초안입니다.");
+        }
+
+        // 이미 반려된 Draft는 승인할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.REJECTED) {
+            throw new IllegalStateException("반려된 FAQ 초안은 승인할 수 없습니다.");
+        }
+
         // 게시 FAQ 생성
         Faq faq = new Faq();
         faq.setQuestion(question);
@@ -177,6 +192,16 @@ public class FaqServiceImpl implements FaqService {
     public void rejectDraft(UUID draftId, UUID reviewerId, String reason) {
         FaqDraft draft = faqDraftRepository.findById(draftId)
             .orElseThrow(() -> new IllegalArgumentException("FAQ 초안이 존재하지 않습니다."));
+
+        // 이미 승인된 Draft는 반려할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.PUBLISHED) {
+            throw new IllegalStateException("이미 승인된 FAQ 초안은 반려할 수 없습니다.");
+        }
+
+        // 이미 반려된 Draft는 다시 반려할 수 없음
+        if (draft.getStatus() == FaqDraft.Status.REJECTED) {
+            throw new IllegalStateException("이미 반려된 FAQ 초안입니다.");
+        }
 
         draft.reject(reviewerId);
 

@@ -35,6 +35,12 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         UUID userId,
         String domain
     ) {
+        // 0️⃣ 세션 존재 여부 검증
+        ChatSession session = chatSessionRepository.findActiveById(request.sessionId());
+        if (session == null) {
+            throw new IllegalArgumentException("세션을 찾을 수 없습니다: " + request.sessionId());
+        }
+
         // 1️⃣ USER 메시지 저장
         ChatMessage userMessage =
             ChatMessage.userMessage(

@@ -57,6 +57,25 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 잘못된 인자 예외 처리
+     * 
+     * <p>IllegalArgumentException을 400 Bad Request로 처리합니다.</p>
+     * 
+     * @param ex IllegalArgumentException 예외
+     * @return 400 BAD_REQUEST 응답
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", 400);
+        response.put("error", "BAD_REQUEST");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
      * 그 외 모든 예외 처리
      * 
      * <p>처리되지 않은 모든 예외를 500 Internal Server Error로 처리합니다.</p>

@@ -1,5 +1,6 @@
 package com.ctrlf.chat.faq.controller;
 
+import com.ctrlf.chat.faq.dto.request.FaqCandidateCreateRequest;
 import com.ctrlf.chat.faq.dto.response.FaqCandidateResponse;
 import com.ctrlf.chat.faq.dto.response.FaqDraftCreateResponse;
 import com.ctrlf.chat.faq.service.FaqCandidateService;
@@ -7,9 +8,11 @@ import com.ctrlf.chat.faq.service.FaqService;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,6 +27,15 @@ public class AdminFaqCandidateController {
 
     private final FaqCandidateService faqCandidateService;
     private final FaqService faqService;
+
+    /**
+     * FAQ 후보 생성
+     */
+    @PostMapping
+    public ResponseEntity<UUID> createCandidate(@RequestBody FaqCandidateCreateRequest request) {
+        UUID candidateId = faqCandidateService.create(request);
+        return ResponseEntity.ok(candidateId);
+    }
 
     /**
      * FAQ 후보 목록 조회

@@ -1,10 +1,12 @@
 package com.ctrlf.chat.faq.service;
 
+import com.ctrlf.chat.faq.dto.request.FaqCandidateCreateRequest;
 import com.ctrlf.chat.faq.dto.response.FaqCandidateResponse;
 import com.ctrlf.chat.faq.entity.FaqCandidate;
 import com.ctrlf.chat.faq.entity.FaqRevision;
 import com.ctrlf.chat.faq.repository.FaqCandidateRepository;
 import com.ctrlf.chat.faq.repository.FaqRevisionRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,22 @@ public class FaqCandidateServiceImpl implements FaqCandidateService {
 
     private final FaqCandidateRepository faqCandidateRepository;
     private final FaqRevisionRepository faqRevisionRepository;
+
+    @Override
+    public UUID create(FaqCandidateCreateRequest request) {
+        FaqCandidate candidate = new FaqCandidate();
+        candidate.setCanonicalQuestion(request.getQuestion());
+        candidate.setDomain(request.getDomain());
+        candidate.setStatus(FaqCandidate.CandidateStatus.ELIGIBLE);
+        candidate.setPiiDetected(false);
+        candidate.setQuestionCount7d(0);
+        candidate.setQuestionCount30d(0);
+        // 테스트/개발용: 기본 의도 신뢰도 설정 (실제 운영에서는 AI 서버나 분석 로직에서 계산되어야 함)
+        candidate.setAvgIntentConfidence(0.8);
+        candidate.setCreatedAt(Instant.now());
+        
+        return faqCandidateRepository.save(candidate).getId();
+    }
 
     @Override
     @Transactional(readOnly = true)

@@ -1,7 +1,9 @@
 package com.ctrlf.chat.service;
 
 import com.ctrlf.chat.entity.ChatSessionFeedback;
+import com.ctrlf.chat.entity.ChatSession;
 import com.ctrlf.chat.repository.ChatSessionFeedbackRepository;
+import com.ctrlf.chat.repository.ChatSessionRepository;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatSessionFeedbackServiceImpl implements ChatSessionFeedbackService {
 
     private final ChatSessionFeedbackRepository chatSessionFeedbackRepository;
+    private final ChatSessionRepository chatSessionRepository;
 
     @Override
     public void submitSessionFeedback(
@@ -22,6 +25,12 @@ public class ChatSessionFeedbackServiceImpl implements ChatSessionFeedbackServic
         Integer score,
         String comment
     ) {
+        // 세션 존재 여부 검증
+        ChatSession session = chatSessionRepository.findActiveById(sessionId);
+        if (session == null) {
+            throw new IllegalArgumentException("세션을 찾을 수 없습니다: " + sessionId);
+        }
+
         ChatSessionFeedback feedback =
             chatSessionFeedbackRepository.findBySessionId(sessionId)
                 .orElseGet(ChatSessionFeedback::new);
