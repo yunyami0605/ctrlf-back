@@ -360,6 +360,31 @@ public class SourceSetService {
         sourceSet.setUpdatedAt(Instant.now());
         sourceSetRepository.save(sourceSet);
 
+        // 콜백 상세 정보 로깅
+        log.info(
+            "=== 소스셋 완료 콜백 수신: sourceSetId={}, status={}, sourceSetStatus={}, errorCode={}, errorMessage={}, documents_count={} ===",
+            sourceSetId, callback.status(), callback.sourceSetStatus(), 
+            callback.errorCode(), callback.errorMessage(),
+            callback.documents() != null ? callback.documents().size() : 0
+        );
+        
+        // 문서별 상태 로깅
+        if (callback.documents() != null && !callback.documents().isEmpty()) {
+            callback.documents().forEach(doc -> {
+                if ("FAILED".equals(doc.status())) {
+                    log.warn(
+                        "문서 처리 실패: sourceSetId={}, docId={}, status={}, failReason={}",
+                        sourceSetId, doc.documentId(), doc.status(), doc.failReason()
+                    );
+                } else {
+                    log.debug(
+                        "문서 처리 성공: sourceSetId={}, docId={}, status={}",
+                        sourceSetId, doc.documentId(), doc.status()
+                    );
+                }
+            });
+        }
+
         // 성공 시 스크립트 저장
         UUID scriptId = null;
         if ("COMPLETED".equals(callback.status()) && callback.script() != null) {
@@ -373,8 +398,12 @@ public class SourceSetService {
                 // 스크립트 저장 실패해도 콜백은 성공으로 처리 (멱등)
             }
         } else {
-            log.info("소스셋 완료 콜백 처리 (실패): sourceSetId={}, status={}, errorCode={}, errorMessage={}", 
-                sourceSetId, callback.status(), callback.errorCode(), callback.errorMessage());
+            log.error(
+                "=== 소스셋 완료 콜백 처리 (실패): sourceSetId={}, status={}, sourceSetStatus={}, errorCode={}, errorMessage={}, documents={} ===",
+                sourceSetId, callback.status(), callback.sourceSetStatus(), 
+                callback.errorCode(), callback.errorMessage(),
+                callback.documents() != null ? callback.documents().size() : 0
+            );
         }
 
         return new SourceSetCompleteResponse(true, scriptId);

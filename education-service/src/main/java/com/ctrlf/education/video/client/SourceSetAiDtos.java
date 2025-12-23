@@ -1,6 +1,5 @@
 package com.ctrlf.education.video.client;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.UUID;
 
 /**
@@ -20,8 +19,10 @@ public final class SourceSetAiDtos {
      *   <li>scriptJobId, domain, language 제거: 스펙에서 제거됨</li>
      *   <li>educationId, llmModelHint 추가: 새 스펙에 추가됨</li>
      * </ul>
+     * 
+     * <p>참고: FastAPI가 body를 받기 위해 필수 필드는 항상 포함하고, 선택 필드는 null일 때도 포함합니다.
+     * @JsonInclude(JsonInclude.Include.NON_NULL)을 제거하여 모든 필드를 명시적으로 전송합니다.
      */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record StartRequest(
         /** 연결 교육 ID(선택) */
         UUID educationId,

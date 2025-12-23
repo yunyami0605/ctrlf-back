@@ -14,6 +14,7 @@ import org.springframework.web.client.RestClient;
 public class InfraRagClient {
 
     private final RestClient restClient;
+    private final String baseUrl;
 
     /**
      * RestClient를 구성하여 초기화합니다.
@@ -23,10 +24,17 @@ public class InfraRagClient {
     public InfraRagClient(
         @Value("${app.infra.base-url:http://localhost:9001}") String baseUrl
     ) {
-        RestClient.Builder builder = RestClient.builder()
-            .baseUrl(baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl);
-        
+        String normalizedUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.baseUrl = normalizedUrl;
+        RestClient.Builder builder = RestClient.builder().baseUrl(normalizedUrl);
         this.restClient = builder.build();
+    }
+
+    /**
+     * Base URL을 반환합니다.
+     */
+    public String getBaseUrl() {
+        return baseUrl;
     }
 
     /**

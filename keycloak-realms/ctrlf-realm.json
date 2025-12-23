@@ -4,6 +4,13 @@
   "displayName": "CTRL-F",
   "loginTheme": "ctrlf-theme",
 
+  "accessTokenLifespan": 3600,
+  "accessTokenLifespanForImplicitFlow": 90000,
+  "ssoSessionIdleTimeout": 180000,
+  "ssoSessionMaxLifespan": 3600000,
+  "accessCodeLifespan": 6000,
+  "accessCodeLifespanUserAction": 30000,
+
   "roles": {
     "realm": [
       {
