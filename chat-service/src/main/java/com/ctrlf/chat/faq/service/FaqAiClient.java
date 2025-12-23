@@ -2,9 +2,13 @@ package com.ctrlf.chat.faq.service;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
+@Slf4j
 @Component
 public class FaqAiClient {
 
@@ -23,11 +27,43 @@ public class FaqAiClient {
         String canonicalQuestion,
         List<TopDoc> topDocs
     ) {
-        return restClient.post()
-            .uri("/ai/faq/generate")
-            .body(new AiFaqRequest(domain, clusterId, canonicalQuestion, topDocs))
-            .retrieve()
-            .body(AiFaqResponse.class);
+        try {
+            log.info("AI FAQ 생성 요청: domain={}, clusterId={}, question={}, topDocsCount={}", 
+                domain, clusterId, canonicalQuestion, topDocs.size());
+            
+            // AI 서버 엔드포인트: router prefix="/faq", endpoint="/generate"
+            // FastAPI 앱에서 /ai prefix를 추가했다면 /ai/faq/generate가 됨
+            // 다른 엔드포인트 패턴(/ai/chat/messages, /ai/chat/stream)을 참고하여 /ai/faq/generate 사용
+            AiFaqResponse response = restClient.post()
+                .uri("/ai/faq/generate")
+                .body(new AiFaqRequest(domain, clusterId, canonicalQuestion, topDocs))
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, res) -> {
+                    String errorBody = "";
+                    try {
+                        errorBody = res.getBody().toString();
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                    log.error("AI FAQ 생성 실패: status={}, domain={}, clusterId={}, errorBody={}", 
+                        res.getStatusCode(), domain, clusterId, errorBody);
+                    throw new RestClientException(
+                        String.format("AI 서비스 오류: HTTP %s - %s", res.getStatusCode(), errorBody)
+                    );
+                })
+                .body(AiFaqResponse.class);
+            
+            log.info("AI FAQ 생성 응답: status={}, domain={}, clusterId={}", 
+                response.status(), domain, clusterId);
+            
+            return response;
+        } catch (RestClientException e) {
+            log.error("AI FAQ 생성 요청 실패: domain={}, clusterId={}, error={}", 
+                domain, clusterId, e.getMessage(), e);
+            throw new IllegalStateException(
+                String.format("AI 서비스 호출 실패: %s", e.getMessage()), e
+            );
+        }
     }
 
     /* ======================
@@ -62,11 +98,18 @@ public class FaqAiClient {
         String error_message
     ) {}
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record FaqDraftPayload(
         String faq_draft_id,
+        String domain,
+        String cluster_id,
         String question,
         String answer_markdown,
         String summary,
-        Double ai_confidence
+        String source_doc_id,
+        String source_article_label,
+        String answer_source,
+        Double ai_confidence,
+        String created_at
     ) {}
 }
