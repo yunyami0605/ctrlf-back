@@ -428,6 +428,7 @@ public final class VideoDtos {
 
         @Schema(description = "생성된 스크립트 (성공 시)")
         public record SourceSetScript(
+            @Schema(description = "스크립트 ID (FastAPI 생성)") String scriptId,
             @Schema(description = "교육 ID") String educationId,
             @Schema(description = "소스셋 ID") String sourceSetId,
             @Schema(description = "제목") String title,
@@ -438,7 +439,6 @@ public final class VideoDtos {
         ) {
             @Schema(description = "챕터")
             public record SourceSetChapter(
-                @Schema(description = "챕터 ID") String chapterId,
                 @Schema(description = "챕터 인덱스") Integer chapterIndex,
                 @Schema(description = "제목") String title,
                 @Schema(description = "길이(초)") Integer durationSec,
@@ -447,7 +447,6 @@ public final class VideoDtos {
 
             @Schema(description = "씬")
             public record SourceSetScene(
-                @Schema(description = "씬 ID") String sceneId,
                 @Schema(description = "씬 인덱스") Integer sceneIndex,
                 @Schema(description = "목적") String purpose,
                 @Schema(description = "내레이션") String narration,

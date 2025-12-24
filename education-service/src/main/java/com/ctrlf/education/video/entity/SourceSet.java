@@ -72,6 +72,14 @@ public class SourceSet {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /** 에러 코드 (실패 시) */
+    @Column(name = "error_code", length = 50)
+    private String errorCode;
+
+    /** 실패 사유 (실패 시) */
+    @Column(name = "fail_reason", length = 1000)
+    private String failReason;
+
     /** 소스셋에 포함된 문서 목록 */
     @OneToMany(mappedBy = "sourceSet")
     private List<SourceSetDocument> documents = new ArrayList<>();

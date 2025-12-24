@@ -358,6 +358,17 @@ public class SourceSetService {
         // 소스셋 상태 업데이트
         sourceSet.setStatus(callback.sourceSetStatus());
         sourceSet.setUpdatedAt(Instant.now());
+        
+        // 실패 시 에러 정보 저장
+        if ("FAILED".equals(callback.status()) || "FAILED".equals(callback.sourceSetStatus())) {
+            sourceSet.setErrorCode(callback.errorCode());
+            sourceSet.setFailReason(callback.errorMessage());
+        } else {
+            // 성공 시 에러 정보 초기화
+            sourceSet.setErrorCode(null);
+            sourceSet.setFailReason(null);
+        }
+        
         sourceSetRepository.save(sourceSet);
 
         // 콜백 상세 정보 로깅
@@ -368,19 +379,30 @@ public class SourceSetService {
             callback.documents() != null ? callback.documents().size() : 0
         );
         
-        // 문서별 상태 로깅
+        // 문서별 상태 업데이트
         if (callback.documents() != null && !callback.documents().isEmpty()) {
             callback.documents().forEach(doc -> {
-                if ("FAILED".equals(doc.status())) {
-                    log.warn(
-                        "문서 처리 실패: sourceSetId={}, docId={}, status={}, failReason={}",
-                        sourceSetId, doc.documentId(), doc.status(), doc.failReason()
-                    );
-                } else {
-                    log.debug(
-                        "문서 처리 성공: sourceSetId={}, docId={}, status={}",
-                        sourceSetId, doc.documentId(), doc.status()
-                    );
+                try {
+                    UUID documentId = UUID.fromString(doc.documentId());
+                    sourceSetDocumentRepository.findBySourceSetIdAndDocumentId(sourceSetId, documentId)
+                        .ifPresent(ssd -> {
+                            if ("FAILED".equals(doc.status())) {
+                                ssd.markFailed(doc.status(), doc.failReason());
+                                log.warn(
+                                    "문서 처리 실패: sourceSetId={}, docId={}, status={}, failReason={}",
+                                    sourceSetId, doc.documentId(), doc.status(), doc.failReason()
+                                );
+                            } else if ("COMPLETED".equals(doc.status())) {
+                                ssd.markCompleted();
+                                log.debug(
+                                    "문서 처리 성공: sourceSetId={}, docId={}, status={}",
+                                    sourceSetId, doc.documentId(), doc.status()
+                                );
+                            }
+                            sourceSetDocumentRepository.save(ssd);
+                        });
+                } catch (IllegalArgumentException e) {
+                    log.warn("잘못된 documentId 형식: {}", doc.documentId());
                 }
             });
         }
@@ -395,7 +417,11 @@ public class SourceSetService {
             } catch (Exception e) {
                 log.error("스크립트 저장 실패: sourceSetId={}, error={}", 
                     sourceSetId, e.getMessage(), e);
-                // 스크립트 저장 실패해도 콜백은 성공으로 처리 (멱등)
+                // 스크립트 저장 실패 시 에러 정보 저장
+                sourceSet.setStatus("FAILED");
+                sourceSet.setErrorCode("SCRIPT_SAVE_ERROR");
+                sourceSet.setFailReason("스크립트 저장 실패: " + e.getMessage());
+                sourceSetRepository.save(sourceSet);
             }
         } else {
             log.error(
@@ -404,6 +430,19 @@ public class SourceSetService {
                 callback.errorCode(), callback.errorMessage(),
                 callback.documents() != null ? callback.documents().size() : 0
             );
+            
+            // 에러 정보가 아직 설정되지 않은 경우 (예: status=COMPLETED but script=null)
+            if (sourceSet.getErrorCode() == null) {
+                sourceSet.setStatus("FAILED");
+                if (callback.script() == null) {
+                    sourceSet.setErrorCode("SCRIPT_NULL");
+                    sourceSet.setFailReason("콜백에 스크립트 데이터가 없습니다");
+                } else {
+                    sourceSet.setErrorCode(callback.errorCode() != null ? callback.errorCode() : "UNKNOWN_ERROR");
+                    sourceSet.setFailReason(callback.errorMessage() != null ? callback.errorMessage() : "알 수 없는 오류");
+                }
+                sourceSetRepository.save(sourceSet);
+            }
         }
 
         return new SourceSetCompleteResponse(true, scriptId);

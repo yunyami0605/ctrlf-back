@@ -45,6 +45,18 @@ public class SourceSetDocument {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** 문서 처리 상태: PENDING, PROCESSING, COMPLETED, FAILED */
+    @Column(name = "status", length = 20)
+    private String status;
+
+    /** 에러 코드 (실패 시) */
+    @Column(name = "error_code", length = 50)
+    private String errorCode;
+
+    /** 실패 사유 (실패 시) */
+    @Column(name = "fail_reason", length = 1000)
+    private String failReason;
+
     /**
      * 소스셋-문서 관계 생성 팩토리 메서드.
      */
@@ -52,6 +64,32 @@ public class SourceSetDocument {
         SourceSetDocument ssd = new SourceSetDocument();
         ssd.setSourceSet(sourceSet);
         ssd.setDocumentId(documentId);
+        ssd.setStatus("PENDING");
         return ssd;
+    }
+
+    /**
+     * 문서 처리 성공 시 상태 업데이트.
+     */
+    public void markCompleted() {
+        this.status = "COMPLETED";
+        this.errorCode = null;
+        this.failReason = null;
+    }
+
+    /**
+     * 문서 처리 실패 시 상태 업데이트.
+     */
+    public void markFailed(String errorCode, String failReason) {
+        this.status = "FAILED";
+        this.errorCode = errorCode;
+        this.failReason = failReason;
+    }
+
+    /**
+     * 문서 처리 중 상태 업데이트.
+     */
+    public void markProcessing() {
+        this.status = "PROCESSING";
     }
 }

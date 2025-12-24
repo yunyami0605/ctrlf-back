@@ -18,4 +18,13 @@ public interface SourceSetDocumentRepository extends JpaRepository<SourceSetDocu
      */
     @Query("SELECT ssd FROM SourceSetDocument ssd WHERE ssd.sourceSet.id = :sourceSetId")
     List<SourceSetDocument> findBySourceSetId(@Param("sourceSetId") UUID sourceSetId);
+
+    /**
+     * 소스셋 ID와 문서 ID로 조회.
+     */
+    @Query("SELECT ssd FROM SourceSetDocument ssd WHERE ssd.sourceSet.id = :sourceSetId AND ssd.documentId = :documentId")
+    java.util.Optional<SourceSetDocument> findBySourceSetIdAndDocumentId(
+        @Param("sourceSetId") UUID sourceSetId,
+        @Param("documentId") UUID documentId
+    );
 }

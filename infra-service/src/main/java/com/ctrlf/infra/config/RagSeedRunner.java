@@ -48,6 +48,7 @@ public class RagSeedRunner implements CommandLineRunner {
         d1.setDomain("HR");
         d1.setUploaderUuid("c13c91f2-fb1a-4d42-b381-72847a52fb99");
         d1.setSourceUrl("s3://ctrl-s3/docs/hr_safety_v3.pdf");
+        d1.setStatus("QUEUED");
         d1.setCreatedAt(Instant.now());
         d1 = documentRepository.save(d1);
         log.info("Seed created: RagDocument id={}, title={}", d1.getId(), d1.getTitle());
@@ -60,6 +61,7 @@ public class RagSeedRunner implements CommandLineRunner {
         d2.setDomain("SEC");
         d2.setUploaderUuid("00000000-0000-0000-0000-000000000000");
         d2.setSourceUrl("s3://ctrl-s3/docs/devsec_v1.pdf");
+        d2.setStatus("QUEUED");
         d2.setCreatedAt(Instant.now());
         d2 = documentRepository.save(d2);
         log.info("Seed created: RagDocument id={}, title={}", d2.getId(), d2.getTitle());

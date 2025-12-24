@@ -263,8 +263,19 @@ public class ScriptService {
     // 교육 ID 확인
     UUID educationId = UUID.fromString(script.educationId());
 
-    // 스크립트 엔티티 생성 (scriptId는 JPA가 자동 생성)
+    // 스크립트 엔티티 생성
     EducationScript scriptEntity = new EducationScript();
+    
+    // FastAPI에서 scriptId를 제공한 경우 해당 ID 사용, 없으면 JPA 자동 생성
+    if (script.scriptId() != null && !script.scriptId().isBlank()) {
+      try {
+        scriptEntity.setId(UUID.fromString(script.scriptId()));
+        log.info("FastAPI 제공 scriptId 사용: {}", script.scriptId());
+      } catch (IllegalArgumentException e) {
+        log.warn("잘못된 scriptId 형식, JPA 자동 생성: scriptId={}", script.scriptId());
+      }
+    }
+    
     scriptEntity.setEducationId(educationId);
     scriptEntity.setSourceSetId(sourceSetId);
     scriptEntity.setTitle(script.title());
