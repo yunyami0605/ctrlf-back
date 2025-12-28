@@ -31,7 +31,7 @@ Body: 있음
 | title        | 문서 제목             | string     | required | false    | "산업안전 규정집 v3"                   |
 | domain       | 문서 도메인           | string     | required | false    | "HR"                                   |
 | uploaderUuid | 업로더 UUID           | string     | required | false    | "c13c91f2-fb1a-4d42-b381-72847a52fb99" |
-| fileUrl      | 업로드된 S3 파일 경로 | string     | required | false    | "s3://bucket/docs/hr_safety_v3.pdf"    |
+| fileUrl      | 업로드된 S3 파일 경로 | string     | required | false    | "s3://ctrl-s3/docs/hr_safety_v3.pdf"   |
 
 ### Response
 

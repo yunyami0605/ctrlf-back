@@ -4,8 +4,8 @@
   "displayName": "CTRL-F",
   "loginTheme": "ctrlf-theme",
 
-  "accessTokenLifespan": 43200,
-  "accessTokenLifespanForImplicitFlow": 90000,
+  "accessTokenLifespan": 10800,
+  "accessTokenLifespanForImplicitFlow": 10800,
   "ssoSessionIdleTimeout": 180000,
   "ssoSessionMaxLifespan": 3600000,
   "accessCodeLifespan": 6000,
@@ -45,9 +45,38 @@
       "secret": "changeme",
       "directAccessGrantsEnabled": true,
       "redirectUris": [],
-      "defaultClientScopes": ["profile", "email"],
+      "defaultClientScopes": ["profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "foo",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true"
+          }
+        },
+        {
+          "name": "client-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "foo",
+            "access.token.claim": "true",
+            "claim.name": "resource_access.${client_id}.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true"
+          }
+        }
+      ],
       "attributes": {
-        "access.token.lifespan": "123200"
+        "access.token.lifespan": "10800"
       }
     },
     {

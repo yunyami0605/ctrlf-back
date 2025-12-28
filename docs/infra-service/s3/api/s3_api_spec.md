@@ -66,13 +66,13 @@ Content-Type: application/json
 
 ### Request Body
 
-| 필드      | 타입   | 필수 | 설명                             | 예시                          |
-| --------- | ------ | ---- | -------------------------------- | ----------------------------- |
-| `fileUrl` | string | ✅   | S3 파일 경로 (`s3://bucket/key`) | `"s3://bucket/docs/file.pdf"` |
+| 필드      | 타입   | 필수 | 설명                             | 예시                           |
+| --------- | ------ | ---- | -------------------------------- | ------------------------------ |
+| `fileUrl` | string | ✅   | S3 파일 경로 (`s3://bucket/key`) | `"s3://ctrl-s3/docs/file.pdf"` |
 
 ```json
 {
-  "fileUrl": "s3://bucket/docs/file.pdf"
+  "fileUrl": "s3://ctrl-s3/docs/file.pdf"
 }
 ```
 
@@ -183,6 +183,6 @@ curl -X PUT '{uploadUrl}' \
 curl -X POST 'http://localhost:9003/infra/files/presign/download' \
   -H 'Content-Type: application/json' \
   -d '{
-    "fileUrl": "s3://bucket/docs/uuid-education-material.pdf"
+    "fileUrl": "s3://ctrl-s3/docs/uuid-education-material.pdf"
   }'
 ```

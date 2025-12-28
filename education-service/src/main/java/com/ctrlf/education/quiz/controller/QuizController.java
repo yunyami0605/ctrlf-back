@@ -11,7 +11,6 @@ import com.ctrlf.common.security.SecurityUtils;
 import java.util.List;
 import com.ctrlf.education.quiz.service.QuizService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

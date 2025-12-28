@@ -53,7 +53,7 @@ public interface EducationRepository extends JpaRepository<Education, UUID> {
             FROM education.education e
             WHERE e.deleted_at IS NULL
               AND (:year IS NULL OR EXTRACT(YEAR FROM e.created_at) = :year)
-              AND (:category IS NULL OR e.category = :category)
+              AND (:eduType IS NULL OR e.edu_type = :eduType)
               AND (
                     :completed IS NULL 
                  OR (:userUuid IS NOT NULL AND 
@@ -77,7 +77,7 @@ public interface EducationRepository extends JpaRepository<Education, UUID> {
         @Param("size") int size,
         @Param("completed") Boolean completed,
         @Param("year") Integer year,
-        @Param("category") String category,
+        @Param("eduType") String eduType,
         @Param("userUuid") UUID userUuid,
         @Param("sort") String sort
     );

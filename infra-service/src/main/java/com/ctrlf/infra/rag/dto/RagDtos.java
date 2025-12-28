@@ -63,7 +63,7 @@ public final class RagDtos {
         private String domain;
 
         @NotBlank
-        @Schema(example = "s3://bucket/docs/file.pdf")
+        @Schema(example = "s3://ctrl-s3/docs/file.pdf")
         private String fileUrl;
     }
 
@@ -100,7 +100,7 @@ public final class RagDtos {
         private String title;
         @Schema(example = "HR", nullable = true)
         private String domain;
-        @Schema(example = "s3://bucket/docs/file_v4.pdf", nullable = true)
+        @Schema(example = "s3://ctrl-s3/docs/file_v4.pdf", nullable = true)
         private String fileUrl;
     }
 
@@ -129,7 +129,7 @@ public final class RagDtos {
         private String title;
         @Schema(example = "HR", nullable = true)
         private String domain;
-        @Schema(example = "s3://bucket/docs/new.pdf", nullable = true)
+        @Schema(example = "s3://ctrl-s3/docs/new.pdf", nullable = true)
         private String fileUrl;
         @Schema(example = "c13c91f2-fb1a-4d42-b381-72847a52fb99", nullable = true)
         private String requestedBy;

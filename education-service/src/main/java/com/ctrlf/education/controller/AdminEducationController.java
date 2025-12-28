@@ -3,14 +3,17 @@ package com.ctrlf.education.controller;
 import com.ctrlf.common.dto.MutationResponse;
 import com.ctrlf.education.dto.EducationRequests.CreateEducationRequest;
 import com.ctrlf.education.dto.EducationRequests.UpdateEducationRequest;
+import com.ctrlf.education.dto.EducationResponses;
 import com.ctrlf.education.dto.EducationResponses.EducationDetailResponse;
 import com.ctrlf.education.dto.EducationResponses.EducationVideosResponse;
 import com.ctrlf.education.service.EducationService;
 import com.ctrlf.education.entity.Education;
 import com.ctrlf.education.repository.EducationRepository;
+import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.entity.EducationVideo;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -75,7 +78,8 @@ public class AdminEducationController {
                     value = "{\n" +
                             "  \"title\": \"산업안전 교육\",\n" +
                             "  \"description\": \"산업안전 수칙\",\n" +
-                            "  \"category\": \"MANDATORY\",\n" +
+                            "  \"category\": \"JOB_DUTY\",\n" +
+                            "  \"eduType\": \"MANDATORY\",\n" +
                             "  \"passScore\": 80,\n" +
                             "  \"passRatio\": 90,\n" +
                             "  \"require\": true\n" +
@@ -124,7 +128,14 @@ public class AdminEducationController {
                                 "  \"id\": \"2c2f8c7a-8a2c-4f3a-9d2b-111111111111\",\n" +
                                 "  \"title\": \"산업안전 교육\",\n" +
                                 "  \"description\": \"산업안전 수칙\",\n" +
+                                "  \"category\": \"JOB_DUTY\",\n" +
+                                "  \"eduType\": \"MANDATORY\",\n" +
+                                "  \"require\": true,\n" +
+                                "  \"passScore\": 80,\n" +
+                                "  \"passRatio\": 90,\n" +
                                 "  \"duration\": 3600,\n" +
+                                "  \"createdAt\": \"2025-12-17T10:00:00Z\",\n" +
+                                "  \"updatedAt\": \"2025-12-17T10:00:00Z\",\n" +
                                 "  \"sections\": []\n" +
                                 "}"
                     )
@@ -154,7 +165,8 @@ public class AdminEducationController {
                     value = "{\n" +
                             "  \"title\": \"산업안전 교육(개정)\",\n" +
                             "  \"description\": \"수칙 개정\",\n" +
-                            "  \"category\": \"MANDATORY\",\n" +
+                            "  \"category\": \"JOB_DUTY\",\n" +
+                            "  \"eduType\": \"MANDATORY\",\n" +
                             "  \"passScore\": 85,\n" +
                             "  \"passRatio\": 95,\n" +
                             "  \"require\": true\n" +
@@ -247,8 +259,7 @@ public class AdminEducationController {
                                 "      \"fileUrl\": \"https://cdn.example.com/video1.mp4\",\n" +
                                 "      \"duration\": 1800,\n" +
                                 "      \"version\": 1,\n" +
-                                "      \"isMain\": true,\n" +
-                                "      \"targetDeptCode\": \"DEV\"\n" +
+                                "      \"isMain\": true\n" +
                                 "    }\n" +
                                 "  ]\n" +
                                 "}]"
@@ -258,15 +269,15 @@ public class AdminEducationController {
         }
     )
     public ResponseEntity<List<EducationVideosResponse>> getAllEducationsWithVideos(
-            @RequestParam(value = "status", required = false) String status) {
+            @RequestParam(value = "status", required = false) VideoStatus status) {
         List<Education> edus = educationRepository.findAll();
         List<EducationVideosResponse> result = new ArrayList<>();
         for (Education e : edus) {
             List<EducationVideo> videos;
-            if (status != null && !status.isBlank()) {
+            if (status != null) {
                 // status 필터 적용
                 videos = educationVideoRepository.findByEducationIdAndStatusOrderByOrderIndexAscCreatedAtAsc(
-                    e.getId(), status.toUpperCase());
+                    e.getId(), status.name());
             } else {
                 // 모든 영상 조회
                 videos = educationVideoRepository.findByEducationIdOrderByOrderIndexAscCreatedAtAsc(e.getId());
@@ -279,7 +290,6 @@ public class AdminEducationController {
                     v.getFileUrl(),
                     v.getDuration() != null ? v.getDuration() : 0,
                     v.getVersion() != null ? v.getVersion() : 1,
-                    v.getTargetDeptCode(),
                     v.getDepartmentScope(),
                     null, // resumePosition
                     null, // isCompleted
@@ -295,6 +305,76 @@ public class AdminEducationController {
                 .build());
         }
         return ResponseEntity.ok(result);
+    }
+
+    // ========================
+    // 대시보드 통계 API
+    // ========================
+
+    @GetMapping("/dashboard/education/summary")
+    @Operation(
+        summary = "대시보드 요약 통계 조회",
+        description = "전체 평균 이수율, 미이수자 수, 4대 의무교육 평균, 직무교육 평균을 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공",
+            content = @Content(schema = @Schema(implementation = EducationResponses.DashboardSummaryResponse.class)))
+    })
+    public ResponseEntity<EducationResponses.DashboardSummaryResponse> getDashboardSummary(
+        @Parameter(description = "기간 (일수, 7/30/90)", example = "30")
+        @RequestParam(value = "period", required = false) Integer period,
+        @Parameter(description = "부서 필터", example = "총무팀")
+        @RequestParam(value = "department", required = false) String department) {
+        return ResponseEntity.ok(educationService.getDashboardSummary(period, department));
+    }
+
+    @GetMapping("/dashboard/education/mandatory-completion")
+    @Operation(
+        summary = "4대 의무교육 이수율 조회",
+        description = "성희롱 예방교육, 개인정보보호 교육, 직장 내 괴롭힘 예방, 장애인 인식개선 교육의 이수율을 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공",
+            content = @Content(schema = @Schema(implementation = EducationResponses.MandatoryCompletionResponse.class)))
+    })
+    public ResponseEntity<EducationResponses.MandatoryCompletionResponse> getMandatoryCompletion(
+        @Parameter(description = "기간 (일수, 7/30/90)", example = "30")
+        @RequestParam(value = "period", required = false) Integer period,
+        @Parameter(description = "부서 필터", example = "총무팀")
+        @RequestParam(value = "department", required = false) String department) {
+        return ResponseEntity.ok(educationService.getMandatoryCompletion(period, department));
+    }
+
+    @GetMapping("/dashboard/education/job-completion")
+    @Operation(
+        summary = "직무교육 이수 현황 조회",
+        description = "직무교육별 상태(진행 중/이수 완료)와 학습자 수를 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공",
+            content = @Content(schema = @Schema(implementation = EducationResponses.JobEducationCompletionResponse.class)))
+    })
+    public ResponseEntity<EducationResponses.JobEducationCompletionResponse> getJobEducationCompletion(
+        @Parameter(description = "기간 (일수, 7/30/90)", example = "30")
+        @RequestParam(value = "period", required = false) Integer period,
+        @Parameter(description = "부서 필터", example = "총무팀")
+        @RequestParam(value = "department", required = false) String department) {
+        return ResponseEntity.ok(educationService.getJobEducationCompletion(period, department));
+    }
+
+    @GetMapping("/dashboard/education/department-completion")
+    @Operation(
+        summary = "부서별 이수율 현황 조회",
+        description = "부서별 대상자 수, 이수자 수, 이수율, 미이수자 수를 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공",
+            content = @Content(schema = @Schema(implementation = EducationResponses.DepartmentCompletionResponse.class)))
+    })
+    public ResponseEntity<EducationResponses.DepartmentCompletionResponse> getDepartmentCompletion(
+        @Parameter(description = "기간 (일수, 7/30/90)", example = "30")
+        @RequestParam(value = "period", required = false) Integer period) {
+        return ResponseEntity.ok(educationService.getDepartmentCompletion(period));
     }
 }
 

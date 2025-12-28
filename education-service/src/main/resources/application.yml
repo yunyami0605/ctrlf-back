@@ -56,6 +56,10 @@ app:
   infra:
     base-url: http://localhost:9003 # infra-service 베이스 URL
 
+# 개발 환경 설정
+dev:
+  auto-source-set-callback: false # true로 설정 시 소스셋 생성 후 자동으로 콜백 시뮬레이션 (AI 서버 호출 없이 처리)
+
 # Feign 클라이언트 설정
 spring.cloud.openfeign:
   client:

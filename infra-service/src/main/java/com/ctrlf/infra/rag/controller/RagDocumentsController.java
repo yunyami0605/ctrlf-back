@@ -56,7 +56,7 @@ public class RagDocumentsController {
             content = @Content(
                 mediaType = "application/json",
                 schema = @Schema(implementation = UploadRequest.class),
-                examples = @ExampleObject(name = "request", value = "{\n  \"title\": \"산업안전 규정집 v3\",\n  \"domain\": \"HR\",\n  \"fileUrl\": \"s3://bucket/docs/hr_safety_v3.pdf\"\n}")
+                examples = @ExampleObject(name = "request", value = "{\n  \"title\": \"산업안전 규정집 v3\",\n  \"domain\": \"HR\",\n  \"fileUrl\": \"s3://ctrl-s3/docs/hr_safety_v3.pdf\"\n}")
             )
         )
     )

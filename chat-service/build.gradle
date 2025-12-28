@@ -6,6 +6,7 @@ dependencies {
   implementation project(':libs:common-dto')
   implementation project(':libs:common-security')
   implementation project(':libs:common-utils')
+  implementation project(':libs:common-constants')
 
   implementation 'org.springframework.boot:spring-boot-starter-web:3.3.3'
   implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.3.3'

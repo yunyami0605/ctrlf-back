@@ -246,7 +246,7 @@ public class AdminUserController {
         description = "keycloak.admin(client_id / client_secret)로 client_credentials 토큰을 발급합니다.",
         security = {}
     )
-    public ResponseEntity<Map> clientCredentialsToken() {
+    public ResponseEntity<Map<String, Object>> clientCredentialsToken() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
@@ -254,7 +254,8 @@ public class AdminUserController {
         form.add("client_id", props.getClientId());
         form.add("client_secret", props.getClientSecret());
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-        Map body = restTemplate.postForObject(tokenEndpoint(), entity, Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = restTemplate.postForObject(tokenEndpoint(), entity, Map.class);
         return ResponseEntity.ok(body);
     }
 
@@ -264,7 +265,7 @@ public class AdminUserController {
         description = "username/password로 토큰 발급(Direct Access Grants). clientId/Secret 미지정 시 keycloak.admin 설정 사용.",
         security = {}
     )
-    public ResponseEntity<Map> passwordToken(
+    public ResponseEntity<Map<String, Object>> passwordToken(
         @io.swagger.v3.oas.annotations.parameters.RequestBody(
             required = true,
             content = @Content(
@@ -299,8 +300,43 @@ public class AdminUserController {
             form.add("scope", request.getScope());
         }
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-        Map body = restTemplate.postForObject(tokenEndpoint(), entity, Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = restTemplate.postForObject(tokenEndpoint(), entity, Map.class);
         return ResponseEntity.ok(body);
+    }
+
+    @GetMapping("/token/introspect")
+    @Operation(
+        summary = "[DEV] Service Account 토큰 인트로스펙션",
+        description = "현재 설정된 클라이언트의 Service Account 토큰을 인트로스펙션하여 권한 정보를 확인합니다. " +
+                      "realm_access.roles에 'realm-management' 관련 권한이 있는지 확인하세요.",
+        security = {}
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공 - 토큰 정보 반환",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = Object.class)))
+    })
+    public ResponseEntity<Map<String, Object>> introspectServiceAccountToken() {
+        Map<String, Object> tokenInfo = service.getClient().introspectServiceAccountToken();
+        return ResponseEntity.ok(tokenInfo);
+    }
+
+    @GetMapping("/token/decode")
+    @Operation(
+        summary = "[DEV] Service Account 토큰 디코딩",
+        description = "현재 설정된 클라이언트의 Service Account 토큰을 JWT로 디코딩하여 전체 payload를 확인합니다. " +
+                      "인트로스펙션과 달리 토큰에 실제로 포함된 모든 클레임을 확인할 수 있습니다.",
+        security = {}
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공 - 토큰 payload 반환",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = Object.class)))
+    })
+    public ResponseEntity<Map<String, Object>> decodeServiceAccountToken() {
+        Map<String, Object> tokenPayload = service.getClient().decodeServiceAccountToken();
+        return ResponseEntity.ok(tokenPayload);
     }
 }
 

@@ -2,6 +2,8 @@ package com.ctrlf.education.video.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -37,9 +39,10 @@ public class EducationVideoReview {
     @Column(name = "reviewer_uuid", columnDefinition = "uuid")
     private UUID reviewerUuid;
 
-    /** 상태(예: PENDING/APPROVED/REJECTED 등) */
-    @Column(name = "status")
-    private String status;
+    /** 반려 단계 (SCRIPT: 스크립트 검토 단계 반려, VIDEO: 영상 검토 단계 반려) */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rejection_stage")
+    private RejectionStage rejectionStage;
 
     /** 검수 코멘트 */
     @Column(name = "comment")
@@ -56,11 +59,16 @@ public class EducationVideoReview {
 
     /**
      * 반려 리뷰 생성 팩토리 메서드.
+     * 
+     * @param videoId 영상 ID
+     * @param comment 반려 사유
+     * @param reviewerUuid 리뷰어 UUID
+     * @param rejectionStage 반려 단계 (SCRIPT: 스크립트 검토 단계, VIDEO: 영상 검토 단계)
      */
-    public static EducationVideoReview createRejection(UUID videoId, String comment, UUID reviewerUuid) {
+    public static EducationVideoReview createRejection(UUID videoId, String comment, UUID reviewerUuid, RejectionStage rejectionStage) {
         EducationVideoReview review = new EducationVideoReview();
         review.setVideoId(videoId);
-        review.setStatus("REJECTED");
+        review.setRejectionStage(rejectionStage);
         review.setComment(comment);
         review.setReviewerUuid(reviewerUuid);
         return review;

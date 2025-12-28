@@ -52,7 +52,7 @@ public class Education {
     @Column(name = "pass_score")
     private Integer passScore;
 
-    /** 통과 기준 비율 */
+    /** 시청률 통과 기준 비율 */
     @Column(name = "pass_ratio")
     private Integer passRatio;
 

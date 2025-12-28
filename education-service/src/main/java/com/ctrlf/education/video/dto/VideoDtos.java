@@ -1,8 +1,10 @@
 package com.ctrlf.education.video.dto;
 
+import com.ctrlf.common.constant.Department;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -100,7 +102,7 @@ public final class VideoDtos {
         @NotNull(message = "eduId는 필수입니다")
         UUID eduId,
 
-        @Schema(description = "S3 파일 URL", example = "s3://bucket/docs/file.pdf")
+        @Schema(description = "S3 파일 URL", example = "s3://ctrl-s3/docs/file.pdf")
         @NotBlank(message = "fileUrl은 필수입니다")
         String fileUrl
     ) {}
@@ -241,9 +243,9 @@ public final class VideoDtos {
         @Schema(description = "파일 URL") String fileUrl,
         @Schema(description = "버전") Integer version,
         @Schema(description = "길이(초)") Integer duration,
-        @Schema(description = "상태") String status,
-        @Schema(description = "대상 부서 코드") String targetDeptCode,
-        @Schema(description = "수강 가능 부서(JSON)") String departmentScope,
+        @Schema(description = "상태") VideoStatus status,
+        @Schema(description = "수강 가능 부서 목록 (사용 가능한 값: ALL, GENERAL_AFFAIRS, PLANNING, MARKETING, HR, FINANCE, ENGINEERING, SALES, LEGAL)", 
+                example = "[\"HR\", \"ENGINEERING\"]") List<Department> departmentScope,
         @Schema(description = "재생 순서(0-base)") Integer orderIndex,
         @Schema(description = "생성시각 ISO8601") String createdAt
     ) {}
@@ -254,9 +256,10 @@ public final class VideoDtos {
         @Schema(description = "파일 URL") String fileUrl,
         @Schema(description = "버전") Integer version,
         @Schema(description = "길이(초)") Integer duration,
-        @Schema(description = "상태") String status,
-        @Schema(description = "대상 부서 코드") String targetDeptCode,
-        @Schema(description = "수강 가능 부서(JSON)") String departmentScope,
+        @Schema(description = "상태") VideoStatus status,
+
+        @Schema(description = "수강 가능 부서 목록 (사용 가능한 값: ALL, GENERAL_AFFAIRS, PLANNING, MARKETING, HR, FINANCE, ENGINEERING, SALES, LEGAL)", 
+                example = "[\"HR\", \"ENGINEERING\"]") List<Department> departmentScope,
         @Schema(description = "재생 순서(0-base)") Integer orderIndex
     ) {}
 
@@ -274,8 +277,9 @@ public final class VideoDtos {
         @NotBlank(message = "title은 필수입니다")
         String title,
 
-        @Schema(description = "수강 가능 부서(JSON)", example = "[\"HR\", \"IT\"]")
-        String departmentScope
+        @Schema(description = "수강 가능 부서 목록 (사용 가능한 값: ALL, GENERAL_AFFAIRS, PLANNING, MARKETING, HR, FINANCE, ENGINEERING, SALES, LEGAL)", 
+                example = "[\"HR\", \"ENGINEERING\"]")
+        List<Department> departmentScope
     ) {}
 
     @Schema(description = "영상 컨텐츠 생성 응답")
@@ -312,7 +316,8 @@ public final class VideoDtos {
         PROCESSING,                 // 영상 생성 중
         READY,                      // 영상 생성 완료
         FINAL_REVIEW_REQUESTED,     // 2차 검토 요청 (영상)
-        PUBLISHED                   // 최종 승인/게시 (유저 노출)
+        PUBLISHED,                  // 최종 승인/게시 (유저 노출)
+        DISABLED                    // 비활성화 (유저 노출 중지)
     }
 
     @Schema(description = "영상 상태 강제 변경 요청 (어드민 테스트용)")
@@ -472,5 +477,82 @@ public final class VideoDtos {
     public record SourceSetCompleteResponse(
         @Schema(description = "저장 성공 여부") boolean saved,
         @Schema(description = "생성된 스크립트 ID (저장 성공 시)") UUID scriptId
+    ) {}
+
+    // ========================
+    // 검토(Review) 관련 DTOs
+    // ========================
+
+    @Schema(description = "검토 대기 목록 조회 응답")
+    public record ReviewQueueItem(
+        @Schema(description = "영상 ID") UUID videoId,
+        @Schema(description = "교육 ID") UUID educationId,
+        @Schema(description = "교육 제목") String educationTitle,
+        @Schema(description = "영상 제목") String videoTitle,
+        @Schema(description = "상태") VideoStatus status,
+        @Schema(description = "검토 단계 (1차: SCRIPT_REVIEW_REQUESTED, 2차: FINAL_REVIEW_REQUESTED)") String reviewStage,
+        @Schema(description = "제작자 부서") String creatorDepartment,
+        @Schema(description = "제작자 이름") String creatorName,
+        @Schema(description = "제작자 UUID") UUID creatorUuid,
+        @Schema(description = "제출 시각") String submittedAt,
+        @Schema(description = "카테고리") String category,
+        @Schema(description = "교육 유형") String eduType
+    ) {}
+
+    @Schema(description = "검토 대기 목록 조회 페이징 응답")
+    public record ReviewQueueResponse(
+        @Schema(description = "검토 대기 목록") List<ReviewQueueItem> items,
+        @Schema(description = "전체 개수") Long totalCount,
+        @Schema(description = "현재 페이지 (0-base)") int page,
+        @Schema(description = "페이지 크기") int size,
+        @Schema(description = "전체 페이지 수") int totalPages,
+        @Schema(description = "1차 검토 대기 개수") Long firstRoundCount,
+        @Schema(description = "2차 검토 대기 개수") Long secondRoundCount,
+        @Schema(description = "문서 타입 개수") Long documentCount
+    ) {}
+
+    @Schema(description = "검토 통계 응답")
+    public record ReviewStatsResponse(
+        @Schema(description = "검토 대기 개수") Long pendingCount,
+        @Schema(description = "승인됨 개수") Long approvedCount,
+        @Schema(description = "반려됨 개수") Long rejectedCount,
+        @Schema(description = "내 활동 개수") Long myActivityCount
+    ) {}
+
+    @Schema(description = "감사 이력 항목")
+    public record AuditHistoryItem(
+        @Schema(description = "이벤트 타입") String eventType,
+        @Schema(description = "이벤트 설명") String description,
+        @Schema(description = "발생 시각") String timestamp,
+        @Schema(description = "처리자 이름") String actorName,
+        @Schema(description = "처리자 UUID") UUID actorUuid,
+        @Schema(description = "반려 사유 (반려인 경우)") String rejectionReason,
+        @Schema(description = "반려 단계 (반려인 경우)") String rejectionStage
+    ) {}
+
+    @Schema(description = "감사 이력 조회 응답")
+    public record AuditHistoryResponse(
+        @Schema(description = "영상 ID") UUID videoId,
+        @Schema(description = "영상 제목") String videoTitle,
+        @Schema(description = "감사 이력 목록") List<AuditHistoryItem> history
+    ) {}
+
+    @Schema(description = "검토 상세 정보 응답")
+    public record ReviewDetailResponse(
+        @Schema(description = "영상 ID") UUID videoId,
+        @Schema(description = "교육 ID") UUID educationId,
+        @Schema(description = "교육 제목") String educationTitle,
+        @Schema(description = "영상 제목") String videoTitle,
+        @Schema(description = "상태") VideoStatus status,
+        @Schema(description = "검토 단계") String reviewStage,
+        @Schema(description = "제작자 부서") String creatorDepartment,
+        @Schema(description = "제작자 이름") String creatorName,
+        @Schema(description = "제작자 UUID") UUID creatorUuid,
+        @Schema(description = "제출 시각") String submittedAt,
+        @Schema(description = "업데이트 시각") String updatedAt,
+        @Schema(description = "카테고리") String category,
+        @Schema(description = "교육 유형") String eduType,
+        @Schema(description = "스크립트 ID") UUID scriptId,
+        @Schema(description = "스크립트 버전") Integer scriptVersion
     ) {}
 }

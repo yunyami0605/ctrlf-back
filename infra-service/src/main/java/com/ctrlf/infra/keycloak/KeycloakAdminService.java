@@ -85,6 +85,10 @@ public class KeycloakAdminService {
             return introspected;
         }
     }
+
+    public KeycloakAdminClient getClient() {
+        return client;
+    }
 }
 
 

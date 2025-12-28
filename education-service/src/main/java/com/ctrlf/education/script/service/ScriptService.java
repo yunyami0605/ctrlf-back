@@ -9,8 +9,6 @@ import com.ctrlf.education.script.dto.EducationScriptDto.ScriptCompleteResponse;
 import com.ctrlf.education.script.dto.EducationScriptDto.ScriptDetailResponse;
 import com.ctrlf.education.script.dto.EducationScriptDto.ScriptResponse;
 import com.ctrlf.education.script.dto.EducationScriptDto.ScriptUpdateRequest;
-import com.ctrlf.education.entity.Education;
-import com.ctrlf.education.repository.EducationRepository;
 import com.ctrlf.education.script.dto.EducationScriptDto.ScriptUpdateResponse;
 import com.ctrlf.education.script.entity.EducationScript;
 import com.ctrlf.education.script.entity.EducationScriptChapter;
@@ -19,6 +17,7 @@ import com.ctrlf.education.script.repository.EducationScriptChapterRepository;
 import com.ctrlf.education.script.repository.EducationScriptRepository;
 import com.ctrlf.education.script.repository.EducationScriptSceneRepository;
 import com.ctrlf.education.video.entity.EducationVideo;
+import com.ctrlf.education.video.entity.SourceSet;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,7 +33,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -46,7 +44,6 @@ public class ScriptService {
   private final EducationScriptChapterRepository chapterRepository;
   private final EducationScriptSceneRepository sceneRepository;
   private final EducationVideoRepository videoRepository;
-  private final EducationRepository educationRepository;
   private final ObjectMapper objectMapper;
   private final com.ctrlf.education.video.repository.SourceSetRepository sourceSetRepository;
 
@@ -269,6 +266,22 @@ public class ScriptService {
                 () ->
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "스크립트를 찾을 수 없습니다: " + scriptId));
+    
+    // 1. 스크립트 씬 삭제 (chapter_id를 참조하므로 chapter보다 먼저 삭제)
+    List<EducationScriptScene> scenes = sceneRepository.findByScriptIdOrderByChapterIdAscSceneIndexAsc(scriptId);
+    if (!scenes.isEmpty()) {
+      sceneRepository.deleteAll(scenes);
+      log.info("스크립트 씬 삭제 완료. scriptId={}, count={}", scriptId, scenes.size());
+    }
+    
+    // 2. 스크립트 챕터 삭제 (script_id를 참조하므로 script보다 먼저 삭제)
+    List<EducationScriptChapter> chapters = chapterRepository.findByScriptIdOrderByChapterIndexAsc(scriptId);
+    if (!chapters.isEmpty()) {
+      chapterRepository.deleteAll(chapters);
+      log.info("스크립트 챕터 삭제 완료. scriptId={}, count={}", scriptId, chapters.size());
+    }
+    
+    // 3. 스크립트 삭제
     scriptRepository.delete(script);
     log.info("스크립트 삭제 완료. scriptId={}", scriptId);
   }
@@ -361,9 +374,10 @@ public class ScriptService {
       }
     }
 
-    // 새 스크립트 생성 (ID는 자동 생성)
+    // 새 스크립트 생성 (ID는 수동 생성)
     // NOTE: materialId는 EducationVideo에 이미 저장되어 있음
     EducationScript script = new EducationScript();
+    script.setId(UUID.randomUUID()); // UUID 수동 생성
     script.setEducationId(video.getEducationId());
     script.setRawPayload(scriptJson);
     script.setVersion(newVersion);
@@ -396,7 +410,7 @@ public class ScriptService {
       com.ctrlf.education.video.dto.VideoDtos.SourceSetCompleteCallback.SourceSetScript script
   ) {
     // 소스셋 조회
-    com.ctrlf.education.video.entity.SourceSet sourceSet = sourceSetRepository
+    SourceSet sourceSet = sourceSetRepository
         .findByIdAndNotDeleted(sourceSetId)
         .orElseThrow(() -> new ResponseStatusException(
             HttpStatus.NOT_FOUND,
@@ -408,15 +422,22 @@ public class ScriptService {
     // 스크립트 엔티티 생성
     EducationScript scriptEntity = new EducationScript();
     
-    // FastAPI에서 scriptId를 제공한 경우 해당 ID 사용, 없으면 JPA 자동 생성
+    // FastAPI에서 scriptId를 제공한 경우 해당 ID 사용, 없으면 새 UUID 생성
+    // UUID는 중복 가능성이 거의 없으므로 제공된 ID를 그대로 사용
+    UUID scriptId;
     if (script.scriptId() != null && !script.scriptId().isBlank()) {
       try {
-        scriptEntity.setId(UUID.fromString(script.scriptId()));
-        log.info("FastAPI 제공 scriptId 사용: {}", script.scriptId());
+        scriptId = UUID.fromString(script.scriptId());
+        log.info("FastAPI 제공 scriptId 사용: {}", scriptId);
       } catch (IllegalArgumentException e) {
-        log.warn("잘못된 scriptId 형식, JPA 자동 생성: scriptId={}", script.scriptId());
+        log.warn("잘못된 scriptId 형식, 새 UUID 생성: scriptId={}", script.scriptId());
+        scriptId = UUID.randomUUID();
       }
+    } else {
+      scriptId = UUID.randomUUID();
+      log.debug("scriptId 미제공, 새 UUID 생성: {}", scriptId);
     }
+    scriptEntity.setId(scriptId);
     
     scriptEntity.setEducationId(educationId);
     scriptEntity.setSourceSetId(sourceSetId);
@@ -434,50 +455,77 @@ public class ScriptService {
       scriptEntity.setRawPayload("{}");
     }
     scriptEntity = scriptRepository.save(scriptEntity);
+    
+    // 저장 확인: 실제로 DB에 저장되었는지 확인
+    EducationScript savedScript = scriptRepository.findById(scriptEntity.getId()).orElse(null);
+    if (savedScript == null) {
+      log.error("스크립트 저장 실패: scriptId={}가 DB에 저장되지 않음", scriptEntity.getId());
+      throw new IllegalStateException("스크립트 저장 실패: " + scriptEntity.getId());
+    }
+    log.debug("스크립트 저장 확인: scriptId={}, title={}", savedScript.getId(), savedScript.getTitle());
 
     // 챕터 및 씬 저장
-    if (script.chapters() != null) {
-      for (var chapterData : script.chapters()) {
-        EducationScriptChapter chapter = new EducationScriptChapter();
-        chapter.setScriptId(scriptEntity.getId());
-        chapter.setChapterIndex(chapterData.chapterIndex());
-        chapter.setTitle(chapterData.title());
-        chapter.setDurationSec(chapterData.durationSec());
-        chapter = chapterRepository.save(chapter);
+    try {
+      if (script.chapters() != null) {
+        log.debug("챕터 저장 시작: chapterCount={}", script.chapters().size());
+        for (var chapterData : script.chapters()) {
+          EducationScriptChapter chapter = new EducationScriptChapter();
+          chapter.setScriptId(scriptEntity.getId());
+          chapter.setChapterIndex(chapterData.chapterIndex());
+          chapter.setTitle(chapterData.title());
+          chapter.setDurationSec(chapterData.durationSec());
+          chapter = chapterRepository.save(chapter);
+          log.debug("챕터 저장 완료: chapterId={}, chapterIndex={}", chapter.getId(), chapter.getChapterIndex());
 
-        // 씬 저장
-        if (chapterData.scenes() != null) {
-          for (var sceneData : chapterData.scenes()) {
-            EducationScriptScene scene = new EducationScriptScene();
-            scene.setScriptId(scriptEntity.getId());
-            scene.setChapterId(chapter.getId());
-            scene.setSceneIndex(sceneData.sceneIndex());
-            scene.setPurpose(sceneData.purpose());
-            scene.setNarration(sceneData.narration());
-            scene.setCaption(sceneData.caption());
-            scene.setVisual(sceneData.visual());
-            scene.setDurationSec(sceneData.durationSec());
-            scene.setConfidenceScore(sceneData.confidenceScore());
-            
-            // sourceRefs를 JSON 문자열로 저장
-            if (sceneData.sourceRefs() != null && !sceneData.sourceRefs().isEmpty()) {
-              try {
-                String sourceRefsJson = objectMapper.writeValueAsString(sceneData.sourceRefs());
-                scene.setSourceRefs(sourceRefsJson);
-              } catch (JsonProcessingException e) {
-                log.warn("sourceRefs JSON 직렬화 실패: error={}", e.getMessage());
+          // 씬 저장
+          if (chapterData.scenes() != null) {
+            log.debug("씬 저장 시작: sceneCount={}", chapterData.scenes().size());
+            for (var sceneData : chapterData.scenes()) {
+              EducationScriptScene scene = new EducationScriptScene();
+              scene.setScriptId(scriptEntity.getId());
+              scene.setChapterId(chapter.getId());
+              scene.setSceneIndex(sceneData.sceneIndex());
+              scene.setPurpose(sceneData.purpose());
+              scene.setNarration(sceneData.narration());
+              scene.setCaption(sceneData.caption());
+              scene.setVisual(sceneData.visual());
+              scene.setDurationSec(sceneData.durationSec());
+              scene.setConfidenceScore(sceneData.confidenceScore());
+              
+              // sourceRefs를 JSON 문자열로 저장
+              if (sceneData.sourceRefs() != null && !sceneData.sourceRefs().isEmpty()) {
+                try {
+                  String sourceRefsJson = objectMapper.writeValueAsString(sceneData.sourceRefs());
+                  scene.setSourceRefs(sourceRefsJson);
+                } catch (JsonProcessingException e) {
+                  log.warn("sourceRefs JSON 직렬화 실패: error={}", e.getMessage());
+                }
               }
+              
+              sceneRepository.save(scene);
+              log.debug("씬 저장 완료: sceneIndex={}", sceneData.sceneIndex());
             }
-            
-            sceneRepository.save(scene);
           }
         }
+        log.info("챕터 및 씬 저장 완료: scriptId={}", scriptEntity.getId());
       }
+    } catch (Exception e) {
+      log.error("챕터/씬 저장 중 예외 발생: scriptId={}, error={}", scriptEntity.getId(), e.getMessage(), e);
+      throw e; // 예외를 다시 던져서 트랜잭션 롤백
     }
 
-    log.info("SourceSet 스크립트 저장 완료: sourceSetId={}, scriptId={}, educationId={}", 
-        sourceSetId, scriptEntity.getId(), educationId);
+    // 최종 저장 확인: 트랜잭션 커밋 전 최종 확인
+    UUID finalScriptId = scriptEntity.getId();
+    EducationScript finalCheck = scriptRepository.findById(finalScriptId).orElse(null);
+    if (finalCheck == null) {
+      log.error("스크립트 최종 확인 실패: scriptId={}가 DB에서 찾을 수 없음", finalScriptId);
+    } else {
+      log.debug("스크립트 최종 확인 성공: scriptId={}, title={}", finalCheck.getId(), finalCheck.getTitle());
+    }
     
-    return scriptEntity.getId();
+    log.info("SourceSet 스크립트 저장 완료: sourceSetId={}, scriptId={}, educationId={}", 
+        sourceSetId, finalScriptId, educationId);
+    
+    return finalScriptId;
   }
 }

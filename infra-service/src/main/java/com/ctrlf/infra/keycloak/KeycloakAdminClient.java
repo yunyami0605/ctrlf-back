@@ -1,9 +1,12 @@
 package com.ctrlf.infra.keycloak;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -15,6 +18,7 @@ public class KeycloakAdminClient {
 
     private final KeycloakAdminProperties props;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public KeycloakAdminClient(KeycloakAdminProperties props) {
         this.props = props;
@@ -35,6 +39,8 @@ public class KeycloakAdminClient {
         form.add("grant_type", "client_credentials");
         form.add("client_id", props.getClientId());
         form.add("client_secret", props.getClientSecret());
+        // 역할이 토큰에 포함되도록 scope 명시적 요청
+        form.add("scope", "openid email profile");
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
         Map<?, ?> resp = restTemplate.postForObject(tokenEndpoint(), entity, Map.class);
         if (resp == null || !resp.containsKey("access_token")) {
@@ -48,8 +54,20 @@ public class KeycloakAdminClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(getAccessToken());
         HttpEntity<Void> req = new HttpEntity<>(headers);
-        ResponseEntity<List> resp = restTemplate.exchange(url, HttpMethod.GET, req, List.class);
-        return resp.getBody();
+        try {
+            ResponseEntity<List<Map<String, Object>>> resp = restTemplate.exchange(
+                url, HttpMethod.GET, req, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            return resp.getBody();
+        } catch (HttpClientErrorException.Forbidden e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 접근 권한이 없습니다. " +
+                "Keycloak에서 클라이언트 '" + props.getClientId() + "'의 Service Account가 활성화되어 있고, " +
+                "realm-management 클라이언트에 'view-users', 'manage-users' 등의 권한이 할당되어 있는지 확인하세요. " +
+                "에러 상세: " + e.getMessage(), e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 호출 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
     }
 
     public String createUser(Map<String, Object> payload, String initialPassword, boolean temporary) {
@@ -58,23 +76,34 @@ public class KeycloakAdminClient {
         headers.setBearerAuth(getAccessToken());
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> req = new HttpEntity<>(payload, headers);
-        ResponseEntity<Void> resp = restTemplate.postForEntity(url, req, Void.class);
-        URI loc = resp.getHeaders().getLocation();
-        String userId = null;
-        if (loc != null) {
-            String path = loc.getPath();
-            int idx = path.lastIndexOf('/');
-            if (idx >= 0 && idx < path.length()-1) {
-                userId = path.substring(idx+1);
+        try {
+            ResponseEntity<Void> resp = restTemplate.postForEntity(url, req, Void.class);
+            URI loc = resp.getHeaders().getLocation();
+            String userId = null;
+            if (loc != null) {
+                String path = loc.getPath();
+                int idx = path.lastIndexOf('/');
+                if (idx >= 0 && idx < path.length()-1) {
+                    userId = path.substring(idx+1);
+                }
             }
+            if (userId == null) {
+                throw new IllegalStateException("Failed to parse created user id from Location header");
+            }
+            if (initialPassword != null && !initialPassword.isBlank()) {
+                resetPassword(userId, initialPassword, temporary);
+            }
+            return userId;
+        } catch (HttpClientErrorException.Forbidden e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 접근 권한이 없습니다. " +
+                "Keycloak에서 클라이언트 '" + props.getClientId() + "'의 Service Account가 활성화되어 있고, " +
+                "realm-management 클라이언트에 'manage-users' 권한이 할당되어 있는지 확인하세요. " +
+                "에러 상세: " + e.getMessage(), e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 호출 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
         }
-        if (userId == null) {
-            throw new IllegalStateException("Failed to parse created user id from Location header");
-        }
-        if (initialPassword != null && !initialPassword.isBlank()) {
-            resetPassword(userId, initialPassword, temporary);
-        }
-        return userId;
     }
 
     public void updateUser(String userId, Map<String, Object> payload) {
@@ -83,7 +112,18 @@ public class KeycloakAdminClient {
         headers.setBearerAuth(getAccessToken());
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, Object>> req = new HttpEntity<>(payload, headers);
-        restTemplate.exchange(url, HttpMethod.PUT, req, Void.class);
+        try {
+            restTemplate.exchange(url, HttpMethod.PUT, req, Void.class);
+        } catch (HttpClientErrorException.Forbidden e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 접근 권한이 없습니다. " +
+                "Keycloak에서 클라이언트 '" + props.getClientId() + "'의 Service Account가 활성화되어 있고, " +
+                "realm-management 클라이언트에 'manage-users' 권한이 할당되어 있는지 확인하세요. " +
+                "에러 상세: " + e.getMessage(), e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 호출 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
     }
 
     public void resetPassword(String userId, String newPassword, boolean temporary) {
@@ -97,7 +137,18 @@ public class KeycloakAdminClient {
             "temporary", temporary
         );
         HttpEntity<Map<String, Object>> req = new HttpEntity<>(payload, headers);
-        restTemplate.exchange(url, HttpMethod.PUT, req, Void.class);
+        try {
+            restTemplate.exchange(url, HttpMethod.PUT, req, Void.class);
+        } catch (HttpClientErrorException.Forbidden e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 접근 권한이 없습니다. " +
+                "Keycloak에서 클라이언트 '" + props.getClientId() + "'의 Service Account가 활성화되어 있고, " +
+                "realm-management 클라이언트에 'manage-users' 권한이 할당되어 있는지 확인하세요. " +
+                "에러 상세: " + e.getMessage(), e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 호출 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
     }
 
     public Map<String, Object> getUser(String userId) {
@@ -105,8 +156,20 @@ public class KeycloakAdminClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(getAccessToken());
         HttpEntity<Void> req = new HttpEntity<>(headers);
-        ResponseEntity<Map> resp = restTemplate.exchange(url, HttpMethod.GET, req, Map.class);
-        return resp.getBody();
+        try {
+            ResponseEntity<Map<String, Object>> resp = restTemplate.exchange(
+                url, HttpMethod.GET, req, new ParameterizedTypeReference<Map<String, Object>>() {});
+            return resp.getBody();
+        } catch (HttpClientErrorException.Forbidden e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 접근 권한이 없습니다. " +
+                "Keycloak에서 클라이언트 '" + props.getClientId() + "'의 Service Account가 활성화되어 있고, " +
+                "realm-management 클라이언트에 'view-users' 권한이 할당되어 있는지 확인하세요. " +
+                "에러 상세: " + e.getMessage(), e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak Admin API 호출 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
     }
 
     private String userInfoEndpoint() {
@@ -132,7 +195,8 @@ public class KeycloakAdminClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         HttpEntity<Void> req = new HttpEntity<>(headers);
-        ResponseEntity<Map> resp = restTemplate.exchange(userInfoEndpoint(), HttpMethod.GET, req, Map.class);
+        ResponseEntity<Map<String, Object>> resp = restTemplate.exchange(
+            userInfoEndpoint(), HttpMethod.GET, req, new ParameterizedTypeReference<Map<String, Object>>() {});
         return resp.getBody();
     }
 
@@ -158,8 +222,49 @@ public class KeycloakAdminClient {
             form.add("client_secret", props.getClientSecret());
         }
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-        Map body = restTemplate.postForObject(introspectEndpoint(), entity, Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = restTemplate.postForObject(introspectEndpoint(), entity, Map.class);
         return body;
+    }
+
+    /**
+     * 현재 설정된 클라이언트의 Service Account 토큰을 인트로스펙션하여 권한 정보를 확인합니다.
+     * 디버깅 목적으로 사용됩니다.
+     */
+    public Map<String, Object> introspectServiceAccountToken() {
+        String token = getAccessToken();
+        return introspectToken(token);
+    }
+
+    /**
+     * JWT 토큰의 payload를 디코딩하여 반환합니다.
+     * Base64로 인코딩된 JWT의 두 번째 부분(payload)을 디코딩합니다.
+     */
+    public Map<String, Object> decodeTokenPayload(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length != 3) {
+                throw new IllegalArgumentException("Invalid JWT token format");
+            }
+            String payload = parts[1];
+            // Base64 URL-safe 디코딩
+            byte[] decodedBytes = java.util.Base64.getUrlDecoder().decode(payload);
+            String jsonPayload = new String(decodedBytes, java.nio.charset.StandardCharsets.UTF_8);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> payloadMap = objectMapper.readValue(jsonPayload, Map.class);
+            return payloadMap;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to decode JWT token: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 현재 설정된 클라이언트의 Service Account 토큰을 디코딩하여 전체 클레임을 확인합니다.
+     * 디버깅 목적으로 사용됩니다.
+     */
+    public Map<String, Object> decodeServiceAccountToken() {
+        String token = getAccessToken();
+        return decodeTokenPayload(token);
     }
 }
 

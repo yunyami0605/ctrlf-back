@@ -1,5 +1,7 @@
 package com.ctrlf.education.dto;
 
+import com.ctrlf.education.entity.EducationCategory;
+import com.ctrlf.education.entity.EducationTopic;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -25,13 +27,13 @@ public final class EducationRequests {
         private String title;
         // 교육 설명
         private String description;
-        // 주제 카테고리 (필수) 예) JOB_DUTY, SEXUAL_HARASSMENT_PREVENTION, PERSONAL_INFO_PROTECTION, WORKPLACE_BULLYING, DISABILITY_AWARENESS
-        @NotBlank
-        @Schema(description = "주제 카테고리", allowableValues = {"JOB_DUTY","SEXUAL_HARASSMENT_PREVENTION","PERSONAL_INFO_PROTECTION","WORKPLACE_BULLYING","DISABILITY_AWARENESS"}, example = "JOB_DUTY")
-        private String category;
-        // 교육 유형(MANDATORY/JOB/ETC)
-        @Schema(description = "교육 유형", allowableValues = {"MANDATORY","JOB","ETC"}, example = "MANDATORY")
-        private String eduType;
+        // 주제 카테고리 (필수)
+        @NotNull
+        @Schema(description = "주제 카테고리", example = "JOB_DUTY")
+        private EducationTopic category;
+        // 교육 유형
+        @Schema(description = "교육 유형", example = "MANDATORY")
+        private EducationCategory eduType;
         // 필수 교육인지 여부
         @NotNull
         private Boolean require;
@@ -52,11 +54,11 @@ public final class EducationRequests {
         private String title;
         private String description;
         // 주제 카테고리
-        @Schema(description = "주제 카테고리", allowableValues = {"JOB_DUTY","SEXUAL_HARASSMENT_PREVENTION","PERSONAL_INFO_PROTECTION","WORKPLACE_BULLYING","DISABILITY_AWARENESS"})
-        private String category;
+        @Schema(description = "주제 카테고리")
+        private EducationTopic category;
         // 교육 유형
-        @Schema(description = "교육 유형", allowableValues = {"MANDATORY","JOB","ETC"})
-        private String eduType;
+        @Schema(description = "교육 유형")
+        private EducationCategory eduType;
         private Boolean require;
         // 통과 기준 점수
         private Integer passScore;
@@ -74,8 +76,6 @@ public final class EducationRequests {
     public static class VideoProgressUpdateRequest {
         // 현재 재생 위치(초)
         private Integer position;
-        // 영상 총 길이(초)
-        private Integer duration;
         // 시청 시간 증가분(초)
         private Integer watchTime;
     }

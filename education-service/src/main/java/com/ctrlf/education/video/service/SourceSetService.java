@@ -25,9 +25,13 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -49,6 +53,9 @@ public class SourceSetService {
     private final InfraRagClient infraRagClient;
     private final ScriptService scriptService;
     private final ObjectMapper objectMapper;
+
+    @Value("${dev.auto-source-set-callback:false}")
+    private boolean autoSourceSetCallback;
 
     /**
      * 소스셋 생성.
@@ -99,14 +106,43 @@ public class SourceSetService {
         sourceSetDocumentRepository.saveAll(documents);
 
         // 소스셋 생성 후 AI 서버에 작업 시작 요청 (BestEffort)
-        // 실패해도 소스셋 생성은 성공으로 처리
-        try {
-            startSourceSetProcessing(sourceSet.getId(), sourceSet, req.documentIds());
-        } catch (Exception e) {
-            log.warn("소스셋 작업 시작 요청 실패 (소스셋은 생성됨): sourceSetId={}, error={}", 
-                sourceSet.getId(), e.getMessage(), e);
-            // 실패해도 소스셋 생성은 성공으로 처리
-        }
+        // 트랜잭션 커밋 후 실행하여 SourceSet이 DB에 확실히 저장된 후 AI 서버가 조회할 수 있도록 함
+        final UUID sourceSetId = sourceSet.getId();
+        final UUID educationId = sourceSet.getEducationId();
+        final UUID videoId = sourceSet.getVideoId();
+        final List<String> documentIdsForCallback = req.documentIds();
+        final String sourceSetTitle = sourceSet.getTitle();
+        
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (autoSourceSetCallback) {
+                    // 개발 환경: 자동 콜백 시뮬레이션 (비동기 실행)
+                    log.info("[DEV] 자동 콜백 시뮬레이션 활성화: sourceSetId={}", sourceSetId);
+                    // 새로운 트랜잭션에서 실행되도록 별도 메서드로 분리
+                    try {
+                        simulateSourceSetCompleteCallback(sourceSetId, videoId, educationId, documentIdsForCallback, sourceSetTitle);
+                    } catch (Exception e) {
+                        log.error("[DEV] 소스셋 완료 콜백 시뮬레이션 실패 (소스셋은 생성됨): sourceSetId={}, error={}", 
+                            sourceSetId, e.getMessage(), e);
+                        // 실패해도 소스셋 생성은 성공으로 처리 (이미 커밋됨)
+                    }
+                } else {
+                    // 프로덕션: AI 서버에 작업 시작 요청
+                    try {
+                        log.info("트랜잭션 커밋 완료, AI 서버에 작업 시작 요청: sourceSetId={}", sourceSetId);
+                        // 트랜잭션 밖에서 실행되므로 SourceSet을 다시 조회
+                        SourceSet sourceSetAfterCommit = sourceSetRepository.findByIdAndNotDeleted(sourceSetId)
+                            .orElseThrow(() -> new IllegalStateException("SourceSet not found after commit: " + sourceSetId));
+                        startSourceSetProcessing(sourceSetId, sourceSetAfterCommit, documentIdsForCallback);
+                    } catch (Exception e) {
+                        log.warn("소스셋 작업 시작 요청 실패 (소스셋은 생성됨): sourceSetId={}, error={}", 
+                            sourceSetId, e.getMessage(), e);
+                        // 실패해도 소스셋 생성은 성공으로 처리
+                    }
+                }
+            }
+        });
 
         // 응답 생성
         List<String> documentIds = req.documentIds();
@@ -345,15 +381,37 @@ public class SourceSetService {
      * @param callback 콜백 요청
      * @return 콜백 응답
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public SourceSetCompleteResponse handleSourceSetComplete(
         UUID sourceSetId,
         SourceSetCompleteCallback callback
     ) {
+        // 디버깅: SourceSet 존재 여부 확인 (삭제된 것 포함)
+        sourceSetRepository.findById(sourceSetId).ifPresentOrElse(
+            ss -> {
+                if (ss.getDeletedAt() != null) {
+                    log.warn(
+                        "SourceSet이 삭제된 상태입니다: sourceSetId={}, deletedAt={}, status={}",
+                        sourceSetId, ss.getDeletedAt(), ss.getStatus()
+                    );
+                } else {
+                    log.debug("SourceSet 존재 확인: sourceSetId={}, status={}", sourceSetId, ss.getStatus());
+                }
+            },
+            () -> log.warn("SourceSet이 DB에 존재하지 않습니다: sourceSetId={}", sourceSetId)
+        );
+        
         SourceSet sourceSet = sourceSetRepository.findByIdAndNotDeleted(sourceSetId)
-            .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "소스셋을 찾을 수 없습니다: " + sourceSetId));
+            .orElseThrow(() -> {
+                log.error(
+                    "소스셋 완료 콜백 실패: sourceSetId={}, status={}, sourceSetStatus={}, errorCode={}, errorMessage={}",
+                    sourceSetId, callback.status(), callback.sourceSetStatus(),
+                    callback.errorCode(), callback.errorMessage()
+                );
+                return new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "소스셋을 찾을 수 없습니다: " + sourceSetId);
+            });
 
         // 소스셋 상태 업데이트
         sourceSet.setStatus(callback.sourceSetStatus());
@@ -422,6 +480,11 @@ public class SourceSetService {
                 sourceSet.setErrorCode("SCRIPT_SAVE_ERROR");
                 sourceSet.setFailReason("스크립트 저장 실패: " + e.getMessage());
                 sourceSetRepository.save(sourceSet);
+                // 스크립트 저장 실패 시 HTTP 에러 상태 코드 반환
+                throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    String.format("스크립트 저장 실패: sourceSetId=%s, error=%s", sourceSetId, e.getMessage())
+                );
             }
         } else {
             log.error(
@@ -443,8 +506,22 @@ public class SourceSetService {
                 }
                 sourceSetRepository.save(sourceSet);
             }
+            
+            // 실패 상태일 때 HTTP 에러 상태 코드 반환
+            String errorMessage = callback.errorMessage() != null ? callback.errorMessage() : "소스셋 처리 실패";
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                String.format("소스셋 처리 실패: sourceSetId=%s, errorCode=%s, errorMessage=%s",
+                    sourceSetId, callback.errorCode(), errorMessage)
+            );
         }
 
+        // 트랜잭션 커밋 전 최종 확인: scriptId가 실제로 저장되었는지 확인
+        if (scriptId != null) {
+            log.info("트랜잭션 커밋 전 스크립트 확인: scriptId={}", scriptId);
+        }
+
+        log.info("handleSourceSetComplete 메서드 완료, 트랜잭션 커밋 예정: scriptId={}", scriptId);
         return new SourceSetCompleteResponse(true, scriptId);
     }
 
@@ -472,6 +549,153 @@ public class SourceSetService {
         }
         
         log.info("스크립트 저장 완료: sourceSetId={}, scriptId={}", sourceSet.getId(), scriptId);
+        log.debug("saveScriptFromCallback 완료: scriptId={}, 트랜잭션 커밋 대기 중", scriptId);
         return scriptId;
+    }
+
+    /**
+     * 개발 환경: 소스셋 완료 콜백 자동 시뮬레이션.
+     * AI 서버 호출 없이 더미 데이터로 콜백을 처리합니다.
+     * 
+     * @param sourceSetId 소스셋 ID
+     * @param videoId 영상 ID
+     * @param educationId 교육 ID
+     * @param documentIds 문서 ID 목록
+     * @param title 소스셋 제목
+     */
+    private void simulateSourceSetCompleteCallback(
+        UUID sourceSetId,
+        UUID videoId,
+        UUID educationId,
+        List<String> documentIds,
+        String title
+    ) {
+        log.info("[DEV] 소스셋 완료 콜백 시뮬레이션 시작: sourceSetId={}, videoId={}, educationId={}", 
+            sourceSetId, videoId, educationId);
+
+        // 문서별 결과 생성 (모두 COMPLETED)
+        List<SourceSetCompleteCallback.DocumentResult> documentResults = documentIds.stream()
+            .map(docId -> new SourceSetCompleteCallback.DocumentResult(
+                docId,
+                "COMPLETED",
+                null // failReason
+            ))
+            .collect(Collectors.toList());
+
+        // 더미 스크립트 생성
+        UUID scriptId = UUID.randomUUID();
+        List<SourceSetCompleteCallback.SourceSetScript.SourceSetChapter> chapters = new ArrayList<>();
+        
+        // 챕터 1: 개요
+        List<SourceSetCompleteCallback.SourceSetScript.SourceSetScene> chapter1Scenes = new ArrayList<>();
+        if (!documentIds.isEmpty()) {
+            String firstDocId = documentIds.get(0);
+            // SourceRef는 SourceSetScene 내부에 중첩되어 있으므로, SourceSetScene를 통해 생성
+            SourceSetCompleteCallback.SourceSetScript.SourceSetScene.SourceRef sourceRef1 = 
+                new SourceSetCompleteCallback.SourceSetScript.SourceSetScene.SourceRef(firstDocId, 0);
+            chapter1Scenes.add(new SourceSetCompleteCallback.SourceSetScript.SourceSetScene(
+                0, // sceneIndex
+                "개요 소개", // purpose
+                title + "에 대한 개요를 소개합니다.", // narration
+                title + " 개요", // caption
+                "텍스트 오버레이", // visual
+                30, // durationSec
+                0.95f, // confidenceScore
+                List.of(sourceRef1) // sourceRefs
+            ));
+        }
+        chapters.add(new SourceSetCompleteCallback.SourceSetScript.SourceSetChapter(
+            0, // chapterIndex
+            "1. 개요", // title
+            30, // durationSec
+            chapter1Scenes // scenes
+        ));
+
+        // 챕터 2: 본문
+        List<SourceSetCompleteCallback.SourceSetScript.SourceSetScene> chapter2Scenes = new ArrayList<>();
+        if (!documentIds.isEmpty()) {
+            String firstDocId = documentIds.get(0);
+            // SourceRef는 SourceSetScene 내부에 중첩되어 있으므로, SourceSetScene를 통해 생성
+            SourceSetCompleteCallback.SourceSetScript.SourceSetScene.SourceRef sourceRef2 = 
+                new SourceSetCompleteCallback.SourceSetScript.SourceSetScene.SourceRef(firstDocId, 1);
+            chapter2Scenes.add(new SourceSetCompleteCallback.SourceSetScript.SourceSetScene(
+                0, // sceneIndex
+                "주요 내용 설명", // purpose
+                title + "의 주요 내용을 상세히 설명합니다.", // narration
+                title + " 주요 내용", // caption
+                "슬라이드 전환", // visual
+                180, // durationSec
+                0.92f, // confidenceScore
+                List.of(sourceRef2) // sourceRefs
+            ));
+        }
+        chapters.add(new SourceSetCompleteCallback.SourceSetScript.SourceSetChapter(
+            1, // chapterIndex
+            "2. 주요 내용", // title
+            180, // durationSec
+            chapter2Scenes // scenes
+        ));
+
+        SourceSetCompleteCallback.SourceSetScript script = new SourceSetCompleteCallback.SourceSetScript(
+            scriptId.toString(), // scriptId
+            educationId.toString(), // educationId
+            sourceSetId.toString(), // sourceSetId
+            title + " - 자동 생성 스크립트", // title
+            600, // totalDurationSec (10분)
+            1, // version
+            "dev-mock-model", // llmModel
+            chapters // chapters
+        );
+
+        // 콜백 DTO 생성
+        SourceSetCompleteCallback callback = new SourceSetCompleteCallback(
+            videoId, // videoId
+            "COMPLETED", // status
+            "SCRIPT_READY", // sourceSetStatus
+            documentResults, // documents
+            script, // script
+            null, // errorCode
+            null, // errorMessage
+            UUID.randomUUID(), // requestId
+            "trace-dev-" + sourceSetId // traceId
+        );
+
+        // 콜백 처리: @Async 또는 별도 트랜잭션에서 실행되도록 보장
+        log.info("[DEV] handleSourceSetComplete 호출 전: sourceSetId={}, callback.status={}, script.scriptId={}", 
+            sourceSetId, callback.status(), callback.script() != null ? callback.script().scriptId() : "null");
+        
+        // 직접 트랜잭션 관리로 명시적으로 커밋 보장
+        SourceSetCompleteResponse response;
+        try {
+            // @Transactional 메서드를 호출하면 새로운 트랜잭션이 시작되고 메서드 완료 시 커밋됨
+            response = handleSourceSetComplete(sourceSetId, callback);
+            
+            // 트랜잭션 커밋 후 실제로 저장되었는지 확인
+            if (response != null && response.scriptId() != null) {
+                UUID savedScriptId = response.scriptId();
+                log.info("[DEV] handleSourceSetComplete 호출 성공: sourceSetId={}, scriptId={}", 
+                    sourceSetId, savedScriptId);
+                
+                // 트랜잭션 커밋 후 실제 DB에서 확인 (약간의 지연 후)
+                try {
+                    Thread.sleep(100); // 트랜잭션 커밋 완료 대기
+                    var savedScript = scriptService.getScript(savedScriptId);
+                    log.info("[DEV] 트랜잭션 커밋 후 스크립트 확인 성공: scriptId={}, title={}", 
+                        savedScriptId, savedScript != null ? savedScript.title() : "null");
+                } catch (Exception e) {
+                    log.error("[DEV] 트랜잭션 커밋 후 스크립트 확인 실패: scriptId={}, error={}", 
+                        savedScriptId, e.getMessage());
+                }
+            } else {
+                log.warn("[DEV] handleSourceSetComplete 응답에 scriptId 없음: sourceSetId={}", sourceSetId);
+            }
+        } catch (Exception e) {
+            log.error("[DEV] handleSourceSetComplete 호출 실패: sourceSetId={}, error={}", 
+                sourceSetId, e.getMessage(), e);
+            throw e;
+        }
+        
+        log.info("[DEV] 소스셋 완료 콜백 시뮬레이션 완료: sourceSetId={}, scriptId={}", 
+            sourceSetId, response != null ? response.scriptId() : scriptId);
     }
 }
