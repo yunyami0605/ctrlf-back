@@ -83,30 +83,41 @@ public class FaqServiceImpl implements FaqService {
 
     /**
      * Domain을 RAGFlow가 지원하는 dataset 값으로 매핑
-     * 
-     * 현재 RAGFlow는 'POLICY', 'TEST'만 지원하므로,
-     * 모든 domain을 'POLICY'로 매핑합니다.
-     * 
-     * @param domain 원본 domain (예: "HR", "SECURITY", "POLICY" 등)
-     * @return RAGFlow가 지원하는 dataset 값
+     *
+     * AI 서비스가 기대하는 domain 형식으로 매핑합니다.
+     * - SECURITY -> SEC_POLICY
+     * - EDUCATION -> SEC_POLICY (또는 적절한 매핑)
+     * - POLICY -> POLICY
+     *
+     * @param domain 원본 domain (예: "SECURITY", "EDUCATION", "POLICY" 등)
+     * @return AI 서비스가 기대하는 dataset 값
      */
     private String mapDomainToRagflowDataset(String domain) {
-        // RAGFlow가 지원하는 dataset: 'POLICY', 'TEST'
-        // 모든 domain을 'POLICY'로 매핑 (필요시 확장 가능)
         if (domain == null || domain.isBlank()) {
-            return "POLICY";
+            return "SEC_POLICY";  // 기본값을 SEC_POLICY로 변경
         }
-        
+
         // 대소문자 무시하고 매핑
         String upperDomain = domain.toUpperCase();
-        
-        // 이미 RAGFlow가 지원하는 값이면 그대로 사용
-        if ("POLICY".equals(upperDomain) || "TEST".equals(upperDomain)) {
-            return upperDomain;
+
+        // SECURITY 관련 도메인은 SEC_POLICY로 매핑
+        if ("SECURITY".equals(upperDomain) || "SEC_POLICY".equals(upperDomain)) {
+            return "SEC_POLICY";
         }
-        
-        // 그 외의 모든 domain은 'POLICY'로 매핑
-        return "POLICY";
+
+        // POLICY는 그대로 사용
+        if ("POLICY".equals(upperDomain)) {
+            return "POLICY";
+        }
+
+        // TEST는 그대로 사용
+        if ("TEST".equals(upperDomain)) {
+            return "TEST";
+        }
+
+        // 그 외의 모든 domain은 SEC_POLICY로 매핑 (EDUCATION 등)
+        // AI 서비스에서 SEC_POLICY로 성공했으므로 기본값으로 사용
+        return "SEC_POLICY";
     }
 
     @Override
@@ -127,7 +138,7 @@ public class FaqServiceImpl implements FaqService {
             candidate.setStatus(FaqCandidate.CandidateStatus.EXCLUDED);
             faqCandidateRepository.save(candidate);
             throw new IllegalArgumentException(
-                String.format("의도 신뢰도가 부족합니다. (현재: %s, 최소 요구: 0.7)", 
+                String.format("의도 신뢰도가 부족합니다. (현재: %s, 최소 요구: 0.7)",
                     candidate.getAvgIntentConfidence())
             );
         }
@@ -146,13 +157,18 @@ public class FaqServiceImpl implements FaqService {
         // RAGFlow가 지원하는 값으로 매핑 (POLICY, TEST 등)
         // 현재 RAGFlow는 'POLICY', 'TEST'만 지원하므로, 모든 domain을 'POLICY'로 매핑
         String mappedDomain = mapDomainToRagflowDataset(candidate.getDomain());
-        
+
         FaqAiClient.AiFaqResponse aiResponse;
         try {
+            // sample_questions는 현재 candidate에서 가져올 수 없으므로 null 전달
+            // 향후 candidate에 sample_questions 필드가 추가되면 활용 가능
+            List<String> sampleQuestions = null;
+
             aiResponse = faqAiClient.generate(
                 mappedDomain,  // RAGFlow가 지원하는 dataset 값으로 매핑
                 candidate.getId().toString(), // cluster_id 대체
                 candidate.getCanonicalQuestion(),
+                sampleQuestions,  // 샘플 질문 목록 (선택, 현재는 null)
                 topDocs  // RAG 검색 결과 전달 (빈 리스트여도 AI 서비스가 처리 가능)
             );
         } catch (IllegalStateException e) {
@@ -160,7 +176,7 @@ public class FaqServiceImpl implements FaqService {
             throw e;
         } catch (Exception e) {
             throw new IllegalStateException(
-                String.format("AI 서비스 호출 실패: candidateId=%s, domain=%s, mappedDomain=%s, topDocsCount=%d, error=%s", 
+                String.format("AI 서비스 호출 실패: candidateId=%s, domain=%s, mappedDomain=%s, topDocsCount=%d, error=%s",
                     candidateId, candidate.getDomain(), mappedDomain, topDocs.size(), e.getMessage()),
                 e
             );
@@ -168,11 +184,11 @@ public class FaqServiceImpl implements FaqService {
 
         // AI 서비스 응답 검증
         if (!"SUCCESS".equals(aiResponse.status()) || aiResponse.faq_draft() == null) {
-            String errorMsg = aiResponse.error_message() != null 
-                ? aiResponse.error_message() 
+            String errorMsg = aiResponse.error_message() != null
+                ? aiResponse.error_message()
                 : "AI 서비스에서 FAQ 초안 생성에 실패했습니다.";
             throw new IllegalStateException(
-                String.format("FAQ 초안 생성 실패: candidateId=%s, error=%s, status=%s", 
+                String.format("FAQ 초안 생성 실패: candidateId=%s, error=%s, status=%s",
                     candidateId, errorMsg, aiResponse.status())
             );
         }
