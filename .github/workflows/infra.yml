@@ -2,7 +2,7 @@ name: CI Infrastructure Service
 
 on:
   push:
-    branches: [ "test" ]
+    branches: [ "main" ]
     paths:
       - 'infra-service/**'
       - 'build.gradle'
