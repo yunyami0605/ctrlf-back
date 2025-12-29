@@ -395,5 +395,296 @@ public class RagDocumentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid uuid");
         }
     }
+
+    // ========== Policy Management Methods ==========
+
+    /**
+     * 사규 목록 조회 (document_id별 그룹화)
+     */
+    public List<PolicyListItem> listPolicies(String search, String status, boolean includeArchived, boolean includeDeleted) {
+        List<RagDocument> documents;
+        
+        if (includeArchived || includeDeleted) {
+            // 보관/삭제 포함 옵션은 상태가 "전체"일 때만 적용
+            String statusFilter = "전체".equals(status) ? null : status;
+            documents = documentRepository.findPolicies(search, statusFilter);
+        } else {
+            // 기본적으로 ARCHIVED 제외
+            String statusFilter = "전체".equals(status) ? null : status;
+            documents = documentRepository.findPoliciesExcludingArchived(search, statusFilter);
+        }
+
+        // document_id별로 그룹화
+        java.util.Map<String, List<RagDocument>> grouped = documents.stream()
+            .collect(java.util.stream.Collectors.groupingBy(RagDocument::getDocumentId));
+
+        List<PolicyListItem> result = new ArrayList<>();
+        for (java.util.Map.Entry<String, List<RagDocument>> entry : grouped.entrySet()) {
+            String docId = entry.getKey();
+            List<RagDocument> versions = entry.getValue();
+            
+            // 첫 번째 문서의 제목과 도메인 사용
+            RagDocument first = versions.get(0);
+            
+            List<VersionSummary> versionSummaries = versions.stream()
+                .map(v -> new VersionSummary(
+                    v.getVersion(),
+                    v.getStatus(),
+                    v.getCreatedAt() != null ? v.getCreatedAt().toString() : null
+                ))
+                .collect(java.util.stream.Collectors.toList());
+            
+            result.add(new PolicyListItem(
+                docId,
+                first.getTitle(),
+                first.getDomain(),
+                versionSummaries,
+                versions.size()
+            ));
+        }
+        
+        return result;
+    }
+
+    /**
+     * 사규 상세 조회 (document_id 기준, 모든 버전)
+     */
+    public PolicyDetailResponse getPolicy(String documentId) {
+        List<RagDocument> versions = documentRepository.findByDocumentIdOrderByVersionDesc(documentId);
+        if (versions.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Policy not found: " + documentId);
+        }
+        
+        RagDocument first = versions.get(0);
+        List<VersionDetail> versionDetails = versions.stream()
+            .map(v -> new VersionDetail(
+                v.getId().toString(),
+                v.getDocumentId(),
+                v.getTitle(),
+                v.getDomain(),
+                v.getVersion(),
+                v.getStatus(),
+                v.getChangeSummary(),
+                v.getSourceUrl(),
+                v.getUploaderUuid(),
+                v.getCreatedAt() != null ? v.getCreatedAt().toString() : null,
+                v.getProcessedAt() != null ? v.getProcessedAt().toString() : null
+            ))
+            .collect(java.util.stream.Collectors.toList());
+        
+        return new PolicyDetailResponse(
+            documentId,
+            first.getTitle(),
+            first.getDomain(),
+            versionDetails
+        );
+    }
+
+    /**
+     * 버전별 상세 조회
+     */
+    public VersionDetail getPolicyVersion(String documentId, Integer version) {
+        RagDocument doc = documentRepository.findByDocumentIdAndVersion(documentId, version)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Policy version not found: " + documentId + " v" + version));
+        
+        return new VersionDetail(
+            doc.getId().toString(),
+            doc.getDocumentId(),
+            doc.getTitle(),
+            doc.getDomain(),
+            doc.getVersion(),
+            doc.getStatus(),
+            doc.getChangeSummary(),
+            doc.getSourceUrl(),
+            doc.getUploaderUuid(),
+            doc.getCreatedAt() != null ? doc.getCreatedAt().toString() : null,
+            doc.getProcessedAt() != null ? doc.getProcessedAt().toString() : null
+        );
+    }
+
+    /**
+     * 버전 목록 조회
+     */
+    public List<VersionDetail> getPolicyVersions(String documentId) {
+        List<RagDocument> versions = documentRepository.findByDocumentIdOrderByVersionDesc(documentId);
+        if (versions.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Policy not found: " + documentId);
+        }
+        
+        return versions.stream()
+            .map(v -> new VersionDetail(
+                v.getId().toString(),
+                v.getDocumentId(),
+                v.getTitle(),
+                v.getDomain(),
+                v.getVersion(),
+                v.getStatus(),
+                v.getChangeSummary(),
+                v.getSourceUrl(),
+                v.getUploaderUuid(),
+                v.getCreatedAt() != null ? v.getCreatedAt().toString() : null,
+                v.getProcessedAt() != null ? v.getProcessedAt().toString() : null
+            ))
+            .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 새 사규 생성
+     */
+    public CreatePolicyResponse createPolicy(CreatePolicyRequest req, UUID uploaderUuid) {
+        if (documentRepository.existsByDocumentId(req.getDocumentId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Policy already exists: " + req.getDocumentId());
+        }
+        
+        RagDocument doc = new RagDocument();
+        doc.setDocumentId(req.getDocumentId());
+        doc.setTitle(req.getTitle());
+        doc.setDomain(req.getDomain());
+        doc.setVersion(1);
+        doc.setStatus("DRAFT");
+        doc.setChangeSummary(req.getChangeSummary());
+        doc.setSourceUrl(req.getFileUrl());
+        doc.setUploaderUuid(uploaderUuid.toString());
+        doc.setCreatedAt(Instant.now());
+        
+        doc = documentRepository.save(doc);
+        
+        return new CreatePolicyResponse(
+            doc.getId().toString(),
+            doc.getDocumentId(),
+            doc.getTitle(),
+            doc.getVersion(),
+            doc.getStatus(),
+            doc.getCreatedAt().toString()
+        );
+    }
+
+    /**
+     * 새 버전 생성
+     */
+    public CreateVersionResponse createVersion(String documentId, CreateVersionRequest req, UUID uploaderUuid) {
+        // 기존 버전들 조회하여 최신 버전 확인
+        List<RagDocument> existingVersions = documentRepository.findByDocumentIdOrderByVersionDesc(documentId);
+        if (existingVersions.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Policy not found: " + documentId);
+        }
+        
+        RagDocument latest = existingVersions.get(0);
+        int newVersion = latest.getVersion() != null ? latest.getVersion() + 1 : 1;
+        
+        RagDocument newVersionDoc = new RagDocument();
+        newVersionDoc.setDocumentId(documentId);
+        newVersionDoc.setTitle(latest.getTitle());
+        newVersionDoc.setDomain(latest.getDomain());
+        newVersionDoc.setVersion(newVersion);
+        newVersionDoc.setStatus("DRAFT");
+        newVersionDoc.setChangeSummary(req.getChangeSummary());
+        newVersionDoc.setSourceUrl(req.getFileUrl());
+        newVersionDoc.setUploaderUuid(uploaderUuid.toString());
+        newVersionDoc.setCreatedAt(Instant.now());
+        
+        newVersionDoc = documentRepository.save(newVersionDoc);
+        
+        return new CreateVersionResponse(
+            newVersionDoc.getId().toString(),
+            newVersionDoc.getDocumentId(),
+            newVersionDoc.getVersion(),
+            newVersionDoc.getStatus(),
+            newVersionDoc.getCreatedAt().toString()
+        );
+    }
+
+    /**
+     * 버전 수정
+     */
+    public UpdateVersionResponse updateVersion(String documentId, Integer version, UpdateVersionRequest req) {
+        RagDocument doc = documentRepository.findByDocumentIdAndVersion(documentId, version)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Policy version not found: " + documentId + " v" + version));
+        
+        boolean changed = false;
+        if (req.getChangeSummary() != null && !req.getChangeSummary().isBlank()) {
+            doc.setChangeSummary(req.getChangeSummary());
+            changed = true;
+        }
+        if (req.getFileUrl() != null && !req.getFileUrl().isBlank()) {
+            doc.setSourceUrl(req.getFileUrl());
+            changed = true;
+        }
+        
+        if (!changed) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "no fields to update");
+        }
+        
+        doc = documentRepository.save(doc);
+        
+        return new UpdateVersionResponse(
+            doc.getId().toString(),
+            doc.getDocumentId(),
+            doc.getVersion(),
+            doc.getStatus(),
+            Instant.now().toString()
+        );
+    }
+
+    /**
+     * 상태 변경
+     */
+    public UpdateStatusResponse updateStatus(String documentId, Integer version, UpdateStatusRequest req) {
+        RagDocument doc = documentRepository.findByDocumentIdAndVersion(documentId, version)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Policy version not found: " + documentId + " v" + version));
+        
+        String newStatus = req.getStatus();
+        if (!java.util.List.of("ACTIVE", "DRAFT", "PENDING", "ARCHIVED").contains(newStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                "Invalid status: " + newStatus);
+        }
+        
+        // ACTIVE로 변경 시, 같은 document_id의 다른 ACTIVE 버전들을 DRAFT로 변경
+        if ("ACTIVE".equals(newStatus)) {
+            List<RagDocument> activeVersions = documentRepository.findByDocumentId(documentId).stream()
+                .filter(v -> "ACTIVE".equals(v.getStatus()) && !v.getVersion().equals(version))
+                .collect(java.util.stream.Collectors.toList());
+            
+            for (RagDocument active : activeVersions) {
+                active.setStatus("DRAFT");
+                documentRepository.save(active);
+            }
+        }
+        
+        doc.setStatus(newStatus);
+        doc = documentRepository.save(doc);
+        
+        return new UpdateStatusResponse(
+            doc.getId().toString(),
+            doc.getDocumentId(),
+            doc.getVersion(),
+            doc.getStatus(),
+            Instant.now().toString()
+        );
+    }
+
+    /**
+     * 파일 업로드/교체
+     */
+    public ReplaceFileResponse replaceFile(String documentId, Integer version, ReplaceFileRequest req) {
+        RagDocument doc = documentRepository.findByDocumentIdAndVersion(documentId, version)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "Policy version not found: " + documentId + " v" + version));
+        
+        doc.setSourceUrl(req.getFileUrl());
+        doc = documentRepository.save(doc);
+        
+        return new ReplaceFileResponse(
+            doc.getId().toString(),
+            doc.getDocumentId(),
+            doc.getVersion(),
+            doc.getSourceUrl(),
+            Instant.now().toString()
+        );
+    }
 }
 

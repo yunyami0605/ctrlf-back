@@ -2,6 +2,7 @@ package com.ctrlf.infra.rag.repository;
 
 import com.ctrlf.infra.rag.entity.RagDocument;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,5 +45,52 @@ public interface RagDocumentRepository extends JpaRepository<RagDocument, UUID> 
         Instant start,
         Instant end,
         Pageable pageable
+    );
+
+    // 사규 관리용 메서드
+    List<RagDocument> findByDocumentIdOrderByVersionDesc(String documentId);
+    
+    List<RagDocument> findByDocumentId(String documentId);
+    
+    java.util.Optional<RagDocument> findByDocumentIdAndVersion(String documentId, Integer version);
+    
+    boolean existsByDocumentId(String documentId);
+    
+    @Query("""
+        select d from RagDocument d
+        where d.documentId is not null
+        and (:search is null or lower(d.documentId) like lower(concat('%', :search, '%'))
+             or lower(d.title) like lower(concat('%', :search, '%')))
+        and (:status is null or d.status = :status)
+        order by 
+        case when d.status = 'ACTIVE' then 1
+             when d.status = 'PENDING' then 2
+             when d.status = 'DRAFT' then 3
+             when d.status = 'ARCHIVED' then 4
+             else 5 end,
+        d.documentId, d.version desc
+        """)
+    List<RagDocument> findPolicies(
+        @Param("search") String search,
+        @Param("status") String status
+    );
+    
+    @Query("""
+        select d from RagDocument d
+        where d.documentId is not null
+        and d.status != 'ARCHIVED'
+        and (:search is null or lower(d.documentId) like lower(concat('%', :search, '%'))
+             or lower(d.title) like lower(concat('%', :search, '%')))
+        and (:status is null or d.status = :status)
+        order by 
+        case when d.status = 'ACTIVE' then 1
+             when d.status = 'PENDING' then 2
+             when d.status = 'DRAFT' then 3
+             else 4 end,
+        d.documentId, d.version desc
+        """)
+    List<RagDocument> findPoliciesExcludingArchived(
+        @Param("search") String search,
+        @Param("status") String status
     );
 }

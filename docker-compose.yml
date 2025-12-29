@@ -72,9 +72,36 @@ services:
       keycloak-db:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Keycloak Service Account 권한 자동 설정
+  keycloak-init:
+    image: alpine:latest
+    container_name: keycloak-init
+    depends_on:
+      keycloak:
+        condition: service_started
+    volumes:
+      - ./scripts:/scripts:ro
+    environment:
+      - KEYCLOAK_URL=http://keycloak:8080
+      - REALM=ctrlf
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - CLIENT_ID=infra-admin
+    command: >
+      sh -c "
+        apk add --no-cache curl jq bash &&
+        /scripts/setup-keycloak-service-account.sh
+      "
+    restart: "no"
 
 volumes:
   db-data:
   kc-db-data:
-
-version: "3.8"

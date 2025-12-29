@@ -24,6 +24,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -236,6 +237,191 @@ public class RagDocumentsController {
         @Valid @RequestBody FailChunksBulkUpsertRequest req
     ) {
         return ResponseEntity.ok(ragDocumentService.bulkUpsertFailChunks(documentId, req));
+    }
+
+    // ========== Policy Management APIs ==========
+
+    @GetMapping("/policies")
+    @Operation(
+        summary = "사규 목록 조회",
+        description = "사규 목록을 document_id별로 그룹화하여 조회합니다. 검색, 상태 필터, 보관/삭제 포함 옵션을 지원합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "사규 목록 조회 성공",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = PolicyListItem.class)))),
+        @ApiResponse(responseCode = "400", description = "잘못된 필터 값")
+    })
+    public ResponseEntity<List<PolicyListItem>> listPolicies(
+        @Parameter(description = "document_id 또는 제목 검색어") @RequestParam(value = "search", required = false) String search,
+        @Parameter(description = "상태 필터 (ACTIVE, DRAFT, PENDING, ARCHIVED, 전체)") @RequestParam(value = "status", required = false) String status,
+        @Parameter(description = "보관 포함 여부") @RequestParam(value = "includeArchived", defaultValue = "false") boolean includeArchived,
+        @Parameter(description = "삭제 포함 여부") @RequestParam(value = "includeDeleted", defaultValue = "false") boolean includeDeleted
+    ) {
+        return ResponseEntity.ok(ragDocumentService.listPolicies(search, status, includeArchived, includeDeleted));
+    }
+
+    @GetMapping("/policies/{documentId}")
+    @Operation(
+        summary = "사규 상세 조회",
+        description = "document_id로 사규의 모든 버전을 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "사규 상세 조회 성공",
+            content = @Content(schema = @Schema(implementation = PolicyDetailResponse.class))),
+        @ApiResponse(responseCode = "404", description = "사규를 찾을 수 없음")
+    })
+    public ResponseEntity<PolicyDetailResponse> getPolicy(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId
+    ) {
+        return ResponseEntity.ok(ragDocumentService.getPolicy(documentId));
+    }
+
+    @GetMapping("/policies/{documentId}/versions/{version}")
+    @Operation(
+        summary = "버전별 상세 조회",
+        description = "특정 버전의 상세 정보를 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "버전 상세 조회 성공",
+            content = @Content(schema = @Schema(implementation = VersionDetail.class))),
+        @ApiResponse(responseCode = "404", description = "버전을 찾을 수 없음")
+    })
+    public ResponseEntity<VersionDetail> getPolicyVersion(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId,
+        @Parameter(description = "버전 번호", example = "1") @PathVariable("version") Integer version
+    ) {
+        return ResponseEntity.ok(ragDocumentService.getPolicyVersion(documentId, version));
+    }
+
+    @GetMapping("/policies/{documentId}/versions")
+    @Operation(
+        summary = "버전 목록 조회",
+        description = "사규의 모든 버전 목록을 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "버전 목록 조회 성공",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = VersionDetail.class)))),
+        @ApiResponse(responseCode = "404", description = "사규를 찾을 수 없음")
+    })
+    public ResponseEntity<List<VersionDetail>> getPolicyVersions(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId
+    ) {
+        return ResponseEntity.ok(ragDocumentService.getPolicyVersions(documentId));
+    }
+
+    @PostMapping("/policies")
+    @Operation(
+        summary = "새 사규 생성",
+        description = "새로운 사규를 생성합니다. 초기 버전(v1)이 DRAFT 상태로 생성됩니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "사규 생성 성공",
+            content = @Content(schema = @Schema(implementation = CreatePolicyResponse.class))),
+        @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+        @ApiResponse(responseCode = "409", description = "이미 존재하는 document_id")
+    })
+    public ResponseEntity<CreatePolicyResponse> createPolicy(
+        @Valid @RequestBody CreatePolicyRequest req,
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        if (jwt == null) {
+            throw new IllegalArgumentException("JWT 토큰이 없습니다. 인증이 필요합니다.");
+        }
+        
+        UUID uploaderUuid = SecurityUtils.extractUserUuid(jwt)
+            .orElseThrow(() -> {
+                String sub = jwt.getSubject();
+                return new IllegalArgumentException(
+                    String.format("JWT 토큰에서 사용자 UUID를 추출할 수 없습니다. subject: %s", sub));
+            });
+        
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ragDocumentService.createPolicy(req, uploaderUuid));
+    }
+
+    @PostMapping("/policies/{documentId}/versions")
+    @Operation(
+        summary = "새 버전 생성",
+        description = "기존 사규의 새 버전을 생성합니다. 버전 번호는 자동으로 증가하며 DRAFT 상태로 생성됩니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "버전 생성 성공",
+            content = @Content(schema = @Schema(implementation = CreateVersionResponse.class))),
+        @ApiResponse(responseCode = "404", description = "사규를 찾을 수 없음")
+    })
+    public ResponseEntity<CreateVersionResponse> createVersion(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId,
+        @Valid @RequestBody CreateVersionRequest req,
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        if (jwt == null) {
+            throw new IllegalArgumentException("JWT 토큰이 없습니다. 인증이 필요합니다.");
+        }
+        
+        UUID uploaderUuid = SecurityUtils.extractUserUuid(jwt)
+            .orElseThrow(() -> {
+                String sub = jwt.getSubject();
+                return new IllegalArgumentException(
+                    String.format("JWT 토큰에서 사용자 UUID를 추출할 수 없습니다. subject: %s", sub));
+            });
+        
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ragDocumentService.createVersion(documentId, req, uploaderUuid));
+    }
+
+    @PatchMapping("/policies/{documentId}/versions/{version}")
+    @Operation(
+        summary = "버전 수정",
+        description = "사규 버전의 change_summary나 파일을 수정합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "버전 수정 성공",
+            content = @Content(schema = @Schema(implementation = UpdateVersionResponse.class))),
+        @ApiResponse(responseCode = "404", description = "버전을 찾을 수 없음")
+    })
+    public ResponseEntity<UpdateVersionResponse> updateVersion(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId,
+        @Parameter(description = "버전 번호", example = "2") @PathVariable("version") Integer version,
+        @Valid @RequestBody UpdateVersionRequest req
+    ) {
+        return ResponseEntity.ok(ragDocumentService.updateVersion(documentId, version, req));
+    }
+
+    @PatchMapping("/policies/{documentId}/versions/{version}/status")
+    @Operation(
+        summary = "상태 변경",
+        description = "사규 버전의 상태를 변경합니다. ACTIVE로 변경 시 같은 document_id의 다른 ACTIVE 버전은 자동으로 DRAFT로 변경됩니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "상태 변경 성공",
+            content = @Content(schema = @Schema(implementation = UpdateStatusResponse.class))),
+        @ApiResponse(responseCode = "400", description = "잘못된 상태 값"),
+        @ApiResponse(responseCode = "404", description = "버전을 찾을 수 없음")
+    })
+    public ResponseEntity<UpdateStatusResponse> updateStatus(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId,
+        @Parameter(description = "버전 번호", example = "2") @PathVariable("version") Integer version,
+        @Valid @RequestBody UpdateStatusRequest req
+    ) {
+        return ResponseEntity.ok(ragDocumentService.updateStatus(documentId, version, req));
+    }
+
+    @PutMapping("/policies/{documentId}/versions/{version}/file")
+    @Operation(
+        summary = "파일 업로드/교체",
+        description = "사규 버전의 파일을 교체합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "파일 교체 성공",
+            content = @Content(schema = @Schema(implementation = ReplaceFileResponse.class))),
+        @ApiResponse(responseCode = "404", description = "버전을 찾을 수 없음")
+    })
+    public ResponseEntity<ReplaceFileResponse> replaceFile(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId,
+        @Parameter(description = "버전 번호", example = "2") @PathVariable("version") Integer version,
+        @Valid @RequestBody ReplaceFileRequest req
+    ) {
+        return ResponseEntity.ok(ragDocumentService.replaceFile(documentId, version, req));
     }
 }
 

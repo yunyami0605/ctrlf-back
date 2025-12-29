@@ -33,6 +33,18 @@ public class RagDocument {
     @Column(name = "domain", length = 50)
     private String domain;
 
+    /** 사규 문서 ID (예: POL-EDU-015) - 사규 관리용 */
+    @Column(name = "document_id", length = 50, unique = true)
+    private String documentId;
+
+    /** 문서 버전 (사규 관리용) */
+    @Column(name = "version")
+    private Integer version;
+
+    /** 변경 요약 (사규 관리용) */
+    @Column(name = "change_summary", columnDefinition = "text")
+    private String changeSummary;
+
     /** 유저 UUID = 업로더 UUID(문자열) - 길이 36 (DB: varchar(36)) */
     @Column(name = "uploader_uuid", length = 36)
     private String uploaderUuid;

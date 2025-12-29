@@ -2,6 +2,7 @@ package com.ctrlf.infra.rag.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -252,6 +253,198 @@ public final class RagDtos {
     public static class FailChunksBulkUpsertResponse {
         private boolean saved;
         private int savedCount;
+    }
+
+    // ---------- Policy Management ----------
+    /**
+     * 사규 목록 조회 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class PolicyListItem {
+        private String documentId;
+        private String title;
+        private String domain;
+        private java.util.List<VersionSummary> versions;
+        private int totalVersions;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class VersionSummary {
+        private Integer version;
+        private String status;
+        private String createdAt;
+    }
+
+    /**
+     * 사규 상세 조회 응답 DTO (document_id 기준).
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class PolicyDetailResponse {
+        private String documentId;
+        private String title;
+        private String domain;
+        private java.util.List<VersionDetail> versions;
+    }
+
+    /**
+     * 버전별 상세 조회 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class VersionDetail {
+        private String id; // UUID
+        private String documentId;
+        private String title;
+        private String domain;
+        private Integer version;
+        private String status;
+        private String changeSummary;
+        private String sourceUrl;
+        private String uploaderUuid;
+        private String createdAt;
+        private String processedAt;
+    }
+
+    /**
+     * 새 사규 생성 요청 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    public static class CreatePolicyRequest {
+        @NotBlank
+        @Schema(example = "POL-EDU-015")
+        private String documentId;
+
+        @NotBlank
+        @Schema(example = "교육/퀴즈 운영 정책")
+        private String title;
+
+        @NotBlank
+        @Schema(example = "EDU")
+        private String domain;
+
+        @Schema(example = "s3://ctrl-s3/docs/hr_safety_v3.pdf")
+        private String fileUrl;
+
+        @Schema(example = "초기 사규 등록")
+        private String changeSummary;
+    }
+
+    /**
+     * 새 사규 생성 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class CreatePolicyResponse {
+        private String id; // UUID
+        private String documentId;
+        private String title;
+        private Integer version;
+        private String status;
+        private String createdAt;
+    }
+
+    /**
+     * 새 버전 생성 요청 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    public static class CreateVersionRequest {
+        @Schema(example = "s3://ctrl-s3/docs/policy_v2.pdf")
+        private String fileUrl;
+
+        @Schema(example = "퀴즈 리포트 및 배포 캘린더 추가")
+        private String changeSummary;
+    }
+
+    /**
+     * 새 버전 생성 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class CreateVersionResponse {
+        private String id; // UUID
+        private String documentId;
+        private Integer version;
+        private String status;
+        private String createdAt;
+    }
+
+    /**
+     * 버전 수정 요청 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    public static class UpdateVersionRequest {
+        @Schema(example = "퀴즈 리포트(오답 분석/재학습) 및 배포 캘린더 추가(초안)")
+        private String changeSummary;
+
+        @Schema(example = "s3://ctrl-s3/docs/policy_v2_updated.pdf")
+        private String fileUrl;
+    }
+
+    /**
+     * 버전 수정 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class UpdateVersionResponse {
+        private String id;
+        private String documentId;
+        private Integer version;
+        private String status;
+        private String updatedAt;
+    }
+
+    /**
+     * 상태 변경 요청 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    public static class UpdateStatusRequest {
+        @NotBlank
+        @Schema(example = "ACTIVE", description = "ACTIVE, DRAFT, PENDING, ARCHIVED")
+        private String status;
+    }
+
+    /**
+     * 상태 변경 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class UpdateStatusResponse {
+        private String id;
+        private String documentId;
+        private Integer version;
+        private String status;
+        private String updatedAt;
+    }
+
+    /**
+     * 파일 업로드/교체 요청 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    public static class ReplaceFileRequest {
+        @NotBlank
+        @Schema(example = "s3://ctrl-s3/docs/policy_v2_new.pdf")
+        private String fileUrl;
+    }
+
+    /**
+     * 파일 업로드/교체 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class ReplaceFileResponse {
+        private String id;
+        private String documentId;
+        private Integer version;
+        private String sourceUrl;
+        private String updatedAt;
     }
 }
 

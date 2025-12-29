@@ -47,12 +47,13 @@ docker compose logs -f postgres
 # 각 서비스는 별도 터미널에서 실행 권장
 # AWS_PROFILE 설정이 필요한 경우 (S3 연동 등)
 # infra-service 부터 켜야지 education-service 더미(시드) 데이터가 저장된다
-AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=local,local-seed ./gradlew --no-configuration-cache :infra-service:bootRun
-AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=local,local-seed ./gradlew --no-configuration-cache :education-service:bootRun
+AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=local,local-seed ./gradlew :infra-service:bootRun
+AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=local,local-seed ./gradlew :education-service:bootRun -Dspring-boot.run.profiles=local,local-seed
+
 
 AWS_PROFILE=sk_4th_team04 ./gradlew :chat-service:bootRun
-AWS_PROFILE=sk_4th_team04 ./gradlew :education-service:bootRun --no-configuration-cache
-AWS_PROFILE=sk_4th_team04 ./gradlew :infra-service:bootRun --no-configuration-cache
+AWS_PROFILE=sk_4th_team04 ./gradlew :education-service:bootRun
+AWS_PROFILE=sk_4th_team04 ./gradlew :infra-service:bootRun
 AWS_PROFILE=sk_4th_team04 ./gradlew :quiz-service:bootRun
 AWS_PROFILE=sk_4th_team04 ./gradlew :api-gateway:bootRun
 ```
@@ -98,6 +99,7 @@ AWS_PROFILE=sk_4th_team04 ./gradlew :infra-service:bootRun --args='--spring.prof
 | Secret   | `changeme`              |
 
 - 값은 `infra-service/src/main/resources/application.yml`에서 변경할 수 있습니다.
+- `infra-admin` 클라이언트는 `keycloak-realms/ctrlf-realm.json`에 정의되어 있어 Keycloak 시작 시 `--import-realm` 옵션으로 자동 import됩니다.
 
 ### 테스트 계정
 
@@ -120,6 +122,163 @@ curl -s -X POST 'http://localhost:8090/realms/ctrlf/protocol/openid-connect/toke
   -d 'password=44444' | jq -r '.access_token'
 ```
 
+### Service Account 권한 확인
+
+#### Keycloak Admin Console에서 확인 (UI)
+
+1. **Keycloak Admin Console 접속**
+
+   - URL: `http://localhost:8090`
+   - 관리자 계정: `admin` / `admin`
+
+2. **Realm 선택**
+
+   - 왼쪽 상단에서 `ctrlf` realm 선택
+
+3. **클라이언트 메뉴 이동**
+
+   - 왼쪽 메뉴에서 **Clients** 클릭
+
+4. **infra-admin 클라이언트 선택**
+
+   - 클라이언트 목록에서 `infra-admin` 클릭
+
+5. **Service Account 역할 확인**
+
+   - 상단 탭에서 **Service accounts roles** 탭 클릭
+   - **Filter by clients** 드롭다운에서 `realm-management` 선택
+   - 할당된 역할 목록 확인:
+     - `view-users` ✅
+     - `manage-users` ✅
+     - `view-realm` ✅
+
+6. **Service Account 사용자로 직접 확인 (선택사항)**
+   - **Service accounts roles** 탭에서 **View service account** 버튼 클릭
+   - 또는 왼쪽 메뉴에서 **Users** → 검색창에 `service-account-infra-admin` 입력
+   - 사용자 선택 → **Role mapping** 탭 클릭
+   - **Filter by clients** → `realm-management` 선택
+   - 할당된 역할 확인
+
+#### 스크립트로 확인
+
+권한이 정상적으로 설정되었는지 확인하는 방법:
+
+**방법 1: 확인 스크립트 사용 (권장)**
+
+**Linux/macOS:**
+
+```bash
+./scripts/verify-keycloak-permissions.sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\scripts\verify-keycloak-permissions.ps1
+```
+
+필수 역할(`view-users`, `manage-users`, `view-realm`)이 모두 할당되었는지 자동으로 확인합니다.
+
+**방법 2: infra-service 엔드포인트 사용**
+
+**Linux/macOS:**
+
+```bash
+# infra-service가 실행 중이어야 함
+curl http://localhost:9003/admin/users/token/decode | jq
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# infra-service가 실행 중이어야 함
+Invoke-RestMethod http://localhost:9003/admin/users/token/decode | ConvertTo-Json
+```
+
+응답에서 `resource_access.realm-management.roles` 배열에 다음 역할이 포함되어 있는지 확인:
+
+- `view-users`
+- `manage-users`
+- `view-realm`
+
+**방법 3: 실제 API 호출 테스트**
+
+**Linux/macOS:**
+
+```bash
+# 사용자 목록 조회 API 테스트
+curl http://localhost:9003/admin/users?page=0&size=10
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# 사용자 목록 조회 API 테스트
+Invoke-RestMethod http://localhost:9003/admin/users?page=0&size=10
+```
+
+- 200 OK 응답이 오면 권한이 정상적으로 설정된 것입니다
+- 403 Forbidden이 오면 권한이 없거나 설정이 안 된 것입니다
+
+### keycloak-init 상태 확인
+
+`docker compose up -d` 후에도 권한이 설정되지 않았다면 `keycloak-init`이 실행되지 않았을 수 있습니다:
+
+```bash
+# keycloak-init 상태 확인
+./scripts/check-keycloak-init-status.sh
+
+# 또는 직접 확인
+docker compose ps keycloak-init
+docker compose logs keycloak-init
+```
+
+**keycloak-init이 실행되지 않은 경우:**
+
+```bash
+# 수동으로 실행
+docker compose run --rm keycloak-init
+
+# 또는 호스트에서 직접 실행 (Windows Git Bash)
+./scripts/setup-keycloak-service-account.sh
+```
+
+### 권한 제거 및 재설정 테스트
+
+권한을 제거하고 다시 설정하는 테스트를 수행할 수 있습니다:
+
+**Linux/macOS:**
+
+```bash
+# 1. 권한 제거
+./scripts/remove-keycloak-permissions.sh
+
+# 2. 권한 확인 (제거 확인)
+./scripts/verify-keycloak-permissions.sh
+
+# 3. 권한 다시 설정
+./scripts/setup-keycloak-service-account.sh
+
+# 4. 권한 확인 (재설정 확인)
+./scripts/verify-keycloak-permissions.sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# 1. 권한 제거
+.\scripts\remove-keycloak-permissions.ps1
+
+# 2. 권한 확인 (제거 확인)
+.\scripts\verify-keycloak-permissions.ps1
+
+# 3. 권한 다시 설정
+.\scripts\setup-keycloak-service-account.ps1
+
+# 4. 권한 확인 (재설정 확인)
+.\scripts\verify-keycloak-permissions.ps1
+```
+
 ## 빌드/테스트/포맷
 
 - 포매터: Eclipse(Java) 4칸 들여쓰기, 불필요 import 제거, import 정렬.
@@ -127,13 +286,15 @@ curl -s -X POST 'http://localhost:8090/realms/ctrlf/protocol/openid-connect/toke
 
 ## 문제 해결 (Troubleshooting)
 
-| 문제                  | 해결 방법                                                                  |
-| --------------------- | -------------------------------------------------------------------------- |
-| 포트 충돌             | 5432/8090/9002~9005 사용 중인 프로세스가 없는지 확인                       |
-| DB 연결 실패          | `docker compose ps`로 Postgres 상태 확인, healthcheck 통과 여부 확인       |
-| 마이그레이션 오류     | Flyway `validate` 오류는 스키마 불일치. 초기화 필요 시 볼륨 삭제 후 재기동 |
-| Keycloak realm 미적용 | Keycloak 로그에 `--import-realm` 수행 여부 확인. 필요 시 컨테이너 재기동   |
-| AWS 자격 증명 오류    | `AWS_PROFILE` 환경변수 설정 확인 또는 `~/.aws/credentials` 파일 확인       |
+| 문제                         | 해결 방법                                                                                                            |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 포트 충돌                    | 5432/8090/9002~9005 사용 중인 프로세스가 없는지 확인                                                                 |
+| DB 연결 실패                 | `docker compose ps`로 Postgres 상태 확인, healthcheck 통과 여부 확인                                                 |
+| 마이그레이션 오류            | Flyway `validate` 오류는 스키마 불일치. 초기화 필요 시 볼륨 삭제 후 재기동                                           |
+| Keycloak realm 미적용        | Keycloak 로그에 `--import-realm` 수행 여부 확인. 필요 시 컨테이너 재기동                                             |
+| Docker Compose API 버전 오류 | `docker compose` (v2) 사용 권장. `docker-compose` (v1) 사용 시 `version: "3.8"` 추가 필요                            |
+| Keycloak Admin API 403       | `infra-admin` 클라이언트의 Service Account에 `realm-management` 역할 할당 필요 (위 "Service Account 권한 설정" 참고) |
+| AWS 자격 증명 오류           | `AWS_PROFILE` 환경변수 설정 확인 또는 `~/.aws/credentials` 파일 확인                                                 |
 
 ## DB 접속 및 관리
 

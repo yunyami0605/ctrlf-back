@@ -1,7 +1,9 @@
-package com.ctrlf.infra.keycloak;
+package com.ctrlf.infra.keycloak.controller;
 
 import com.ctrlf.infra.keycloak.dto.UserRequestDto;
 import com.ctrlf.infra.keycloak.dto.PasswordTokenRequest;
+import com.ctrlf.infra.keycloak.service.KeycloakAdminService;
+import com.ctrlf.infra.keycloak.KeycloakAdminProperties;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -114,29 +116,6 @@ public class AdminUserController {
         return ResponseEntity.ok(info);
     }
 
-    @GetMapping
-    @Operation(
-        summary = "관리 사용자 목록 조회",
-        description = "Keycloak Admin API의 /users 결과를 그대로 반환합니다. 페이징 메타데이터는 포함되지 않습니다.",
-        security = {}
-    )
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "성공",
-            content = @Content(mediaType = "application/json",
-                array = @ArraySchema(schema = @Schema(implementation = Object.class))))
-    })
-    public ResponseEntity<List<Map<String, Object>>> list(
-        @Parameter(description = "0부터 시작하는 페이지 번호", example = "0")
-        @RequestParam(name = "page", defaultValue = "0") int page,
-        @Parameter(description = "페이지 크기(최대 200)", example = "50")
-        @RequestParam(name = "size", defaultValue = "50") int size,
-        @Parameter(description = "사용자 검색어(username, email 등)", example = "jane", required = false)
-        @RequestParam(name = "search", required = false) String search
-    ) {
-        List<Map<String, Object>> users = service.listUsers(search, page, size);
-        return ResponseEntity.ok(users);
-    }
-
     @PostMapping
     @Operation(
         summary = "관리 사용자 생성",
@@ -192,7 +171,8 @@ public class AdminUserController {
     @PutMapping("/{userId}")
     @Operation(
         summary = "관리 사용자 수정",
-        description = "username, email, firstName, lastName, enabled, attributes 필드만 반영됩니다.",
+        description = "username, email, firstName, lastName, enabled, attributes, roleNames 필드를 수정할 수 있습니다. " +
+                      "roleNames가 제공되면 사용자의 커스텀 역할도 함께 업데이트됩니다.",
         security = {}
     )
     @ApiResponses({
@@ -202,16 +182,23 @@ public class AdminUserController {
     public ResponseEntity<Void> update(
         @Parameter(description = "Keycloak 사용자 ID", example = "c2f0a1c3-....")
         @PathVariable String userId,
-        @RequestBody Map<String, Object> body
+        @RequestBody UserRequestDto.UpdateUserReq req
     ) {
+        // 사용자 정보 업데이트
         Map<String, Object> payload = new HashMap<>();
-        // pass-through safe fields
-        for (String k : List.of("username", "email", "firstName", "lastName", "enabled", "attributes")) {
-            if (body.containsKey(k)) {
-                payload.put(k, body.get(k));
-            }
-        }
+        if (req.getUsername() != null) payload.put("username", req.getUsername());
+        if (req.getEmail() != null) payload.put("email", req.getEmail());
+        if (req.getFirstName() != null) payload.put("firstName", req.getFirstName());
+        if (req.getLastName() != null) payload.put("lastName", req.getLastName());
+        if (req.getEnabled() != null) payload.put("enabled", req.getEnabled());
+        if (req.getAttributes() != null) payload.put("attributes", req.getAttributes());
         service.updateUser(userId, payload);
+        
+        // 역할 업데이트 (roleNames가 제공된 경우에만)
+        if (req.getRoleNames() != null) {
+            service.updateUserRoles(userId, req.getRoleNames());
+        }
+        
         return ResponseEntity.noContent().build();
     }
 
@@ -232,6 +219,90 @@ public class AdminUserController {
     ) {
         service.resetPassword(userId, req.getValue(), req.getTemporary() != null ? req.getTemporary() : false);
         return ResponseEntity.noContent().build();
+    }
+
+    // ===== Role Management APIs =====
+
+    @GetMapping("/roles")
+    @Operation(
+        summary = "사용 가능한 역할 목록 조회",
+        description = "Keycloak realm에 정의된 모든 역할 목록을 반환합니다.",
+        security = {}
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공",
+            content = @Content(mediaType = "application/json",
+                array = @ArraySchema(schema = @Schema(implementation = Object.class))))
+    })
+    public ResponseEntity<List<Map<String, Object>>> getRoles() {
+        List<Map<String, Object>> roles = service.getRealmRoles();
+        return ResponseEntity.ok(roles);
+    }
+
+    @GetMapping("/{userId}/roles")
+    @Operation(
+        summary = "사용자 역할 조회",
+        description = "특정 사용자에게 할당된 realm 역할 목록을 반환합니다.",
+        security = {}
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공",
+            content = @Content(mediaType = "application/json",
+                array = @ArraySchema(schema = @Schema(implementation = Object.class)))),
+        @ApiResponse(responseCode = "404", description = "사용자 없음")
+    })
+    public ResponseEntity<List<Map<String, Object>>> getUserRoles(
+        @Parameter(description = "Keycloak 사용자 ID", example = "c2f0a1c3-....")
+        @PathVariable String userId
+    ) {
+        List<Map<String, Object>> roles = service.getUserRealmRoles(userId);
+        return ResponseEntity.ok(roles);
+    }
+
+    @PutMapping("/{userId}/roles")
+    @Operation(
+        summary = "사용자 역할 업데이트",
+        description = "사용자의 역할을 업데이트합니다. 기존 역할을 모두 제거하고 새로운 역할 목록을 할당합니다.",
+        security = {}
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "콘텐츠 없음(성공)"),
+        @ApiResponse(responseCode = "404", description = "사용자 없음")
+    })
+    public ResponseEntity<Void> updateUserRoles(
+        @Parameter(description = "Keycloak 사용자 ID", example = "c2f0a1c3-....")
+        @PathVariable String userId,
+        @RequestBody UserRequestDto.UpdateRolesReq req
+    ) {
+        service.updateUserRoles(userId, req.getRoleNames() != null ? req.getRoleNames() : List.of());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/search")
+    @Operation(
+        summary = "향상된 사용자 검색",
+        description = "이름, 사번, 부서, 역할로 필터링하여 사용자 목록을 페이지 형식으로 조회합니다.",
+        security = {}
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "성공",
+            content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = com.ctrlf.common.dto.PageResponse.class)))
+    })
+    public ResponseEntity<com.ctrlf.common.dto.PageResponse<Map<String, Object>>> searchUsers(
+        @Parameter(description = "이름 또는 사번 검색어", example = "김민수", required = false)
+        @RequestParam(name = "search", required = false) String search,
+        @Parameter(description = "부서 필터 (예: '인사팀', '개발팀')", example = "개발팀", required = false)
+        @RequestParam(name = "department", required = false) String department,
+        @Parameter(description = "역할 필터 (예: 'SYSTEM_ADMIN', 'EMPLOYEE')", example = "SYSTEM_ADMIN", required = false)
+        @RequestParam(name = "role", required = false) String role,
+        @Parameter(description = "0부터 시작하는 페이지 번호", example = "0")
+        @RequestParam(name = "page", defaultValue = "0") int page,
+        @Parameter(description = "페이지 크기", example = "50")
+        @RequestParam(name = "size", defaultValue = "50") int size
+    ) {
+        com.ctrlf.common.dto.PageResponse<Map<String, Object>> users = service.listUsersWithFilters(search, department, role, page, size);
+        return ResponseEntity.ok(users);
     }
 
     // ===== Development helper: issue Keycloak tokens (exposed under /admin/users/token/**) =====

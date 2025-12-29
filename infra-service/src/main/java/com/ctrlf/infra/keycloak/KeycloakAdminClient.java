@@ -1,5 +1,6 @@
 package com.ctrlf.infra.keycloak;
 
+import com.ctrlf.common.dto.PageResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -9,6 +10,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.net.URI;
@@ -49,7 +51,16 @@ public class KeycloakAdminClient {
         return String.valueOf(resp.get("access_token"));
     }
 
-    public List<Map<String, Object>> listUsers(String search, int first, int max) {
+    /**
+     * 페이지 기반 사용자 목록 조회
+     * @param search 검색어 (옵션)
+     * @param page 페이지 번호 (0부터 시작)
+     * @param size 페이지 크기
+     * @return PageResponse 객체 (items, page, size, total 포함)
+     */
+    public PageResponse<Map<String, Object>> listUsers(String search, int page, int size) {
+        int first = page * size;
+        int max = size;
         String url = adminApi("/users?first=" + first + "&max=" + max + (search != null && !search.isBlank() ? "&search=" + search : ""));
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(getAccessToken());
@@ -57,7 +68,21 @@ public class KeycloakAdminClient {
         try {
             ResponseEntity<List<Map<String, Object>>> resp = restTemplate.exchange(
                 url, HttpMethod.GET, req, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
-            return resp.getBody();
+            
+            List<Map<String, Object>> users = resp.getBody();
+            if (users == null) {
+                users = new ArrayList<>();
+            }
+            
+            // Keycloak은 총 개수를 직접 반환하지 않으므로, 
+            // 현재 페이지가 마지막 페이지인지 확인하여 총 개수를 추정
+            // 정확한 총 개수를 얻기 위해 추가 조회가 필요할 수 있음
+            long total = users.size() < size ? (long) first + users.size() : (long) first + users.size() + 1;
+            
+            // 더 정확한 총 개수를 얻기 위해 count 쿼리 시도 (Keycloak이 지원하는 경우)
+            // 현재는 추정값을 사용하지만, 필요시 별도 count API 호출 가능
+            
+            return new PageResponse<>(users, page, size, total);
         } catch (HttpClientErrorException.Forbidden e) {
             throw new IllegalStateException(
                 "Keycloak Admin API 접근 권한이 없습니다. " +
@@ -67,6 +92,35 @@ public class KeycloakAdminClient {
         } catch (HttpClientErrorException e) {
             throw new IllegalStateException(
                 "Keycloak Admin API 호출 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 사용자 총 개수 조회 (정확한 총 개수를 얻기 위해)
+     * @param search 검색어 (옵션)
+     * @return 총 사용자 수
+     */
+    public long countUsers(String search) {
+        // Keycloak Admin API는 count 엔드포인트를 제공하지 않으므로,
+        // 큰 max 값으로 조회하여 총 개수를 추정하거나
+        // 실제로는 모든 페이지를 순회해야 정확한 개수를 얻을 수 있음
+        // 성능을 위해 큰 페이지로 한 번 조회하여 추정
+        String url = adminApi("/users?first=0&max=1000" + (search != null && !search.isBlank() ? "&search=" + search : ""));
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAccessToken());
+        HttpEntity<Void> req = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<List<Map<String, Object>>> resp = restTemplate.exchange(
+                url, HttpMethod.GET, req, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> users = resp.getBody();
+            if (users == null) {
+                return 0;
+            }
+            // 1000개 미만이면 정확한 개수, 1000개면 그 이상일 수 있음
+            return users.size() < 1000 ? users.size() : 1000;
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak 사용자 개수 조회 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
         }
     }
 
@@ -266,6 +320,124 @@ public class KeycloakAdminClient {
         String token = getAccessToken();
         return decodeTokenPayload(token);
     }
+
+    // ===== Role Management =====
+
+    /**
+     * 사용 가능한 모든 realm 역할 목록을 조회합니다.
+     * Keycloak 기본 역할(default-roles-*, uma_authorization, offline_access 등)은 제외하고
+     * 커스텀 역할만 반환합니다.
+     */
+    public List<Map<String, Object>> getRealmRoles() {
+        String url = adminApi("/roles");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAccessToken());
+        HttpEntity<Void> req = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<List<Map<String, Object>>> resp = restTemplate.exchange(
+                url, HttpMethod.GET, req, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> allRoles = resp.getBody();
+            if (allRoles == null) {
+                return new ArrayList<>();
+            }
+            
+            // 커스텀 역할만 필터링 (Keycloak 기본 역할 제외)
+            // 커스텀 역할: SYSTEM_ADMIN, COMPLAINT_MANAGER, VIDEO_CREATOR, CONTENTS_REVIEWER, EMPLOYEE
+            List<String> customRoleNames = List.of(
+                "SYSTEM_ADMIN",
+                "COMPLAINT_MANAGER",
+                "VIDEO_CREATOR",
+                "CONTENTS_REVIEWER",
+                "EMPLOYEE"
+            );
+            
+            return allRoles.stream()
+                .filter(role -> {
+                    String roleName = (String) role.get("name");
+                    return roleName != null && customRoleNames.contains(roleName);
+                })
+                .toList();
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak 역할 조회 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 특정 사용자에게 할당된 realm 역할 목록을 조회합니다.
+     * 커스텀 역할만 반환합니다 (Keycloak 기본 역할 제외).
+     */
+    public List<Map<String, Object>> getUserRealmRoles(String userId) {
+        String url = adminApi("/users/" + userId + "/role-mappings/realm");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAccessToken());
+        HttpEntity<Void> req = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<List<Map<String, Object>>> resp = restTemplate.exchange(
+                url, HttpMethod.GET, req, new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> allRoles = resp.getBody();
+            if (allRoles == null) {
+                return new ArrayList<>();
+            }
+            
+            // 커스텀 역할만 필터링
+            List<String> customRoleNames = List.of(
+                "SYSTEM_ADMIN",
+                "COMPLAINT_MANAGER",
+                "VIDEO_CREATOR",
+                "CONTENTS_REVIEWER",
+                "EMPLOYEE"
+            );
+            
+            return allRoles.stream()
+                .filter(role -> {
+                    String roleName = (String) role.get("name");
+                    return roleName != null && customRoleNames.contains(roleName);
+                })
+                .toList();
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new IllegalStateException("사용자를 찾을 수 없습니다: " + userId, e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak 사용자 역할 조회 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 사용자에게 realm 역할을 할당합니다.
+     */
+    public void assignRealmRolesToUser(String userId, List<Map<String, Object>> roles) {
+        String url = adminApi("/users/" + userId + "/role-mappings/realm");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAccessToken());
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<List<Map<String, Object>>> req = new HttpEntity<>(roles, headers);
+        try {
+            restTemplate.exchange(url, HttpMethod.POST, req, Void.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new IllegalStateException("사용자 또는 역할을 찾을 수 없습니다: " + userId, e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak 역할 할당 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 사용자로부터 realm 역할을 제거합니다.
+     */
+    public void removeRealmRolesFromUser(String userId, List<Map<String, Object>> roles) {
+        String url = adminApi("/users/" + userId + "/role-mappings/realm");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAccessToken());
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<List<Map<String, Object>>> req = new HttpEntity<>(roles, headers);
+        try {
+            restTemplate.exchange(url, HttpMethod.DELETE, req, Void.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new IllegalStateException("사용자 또는 역할을 찾을 수 없습니다: " + userId, e);
+        } catch (HttpClientErrorException e) {
+            throw new IllegalStateException(
+                "Keycloak 역할 제거 실패: " + e.getStatusCode() + " - " + e.getMessage(), e);
+        }
+    }
 }
-
-

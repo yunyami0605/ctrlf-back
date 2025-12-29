@@ -24,8 +24,10 @@ import com.ctrlf.education.quiz.entity.QuizQuestion;
 import com.ctrlf.education.quiz.repository.QuizAttemptRepository;
 import com.ctrlf.education.quiz.repository.QuizQuestionRepository;
 import com.ctrlf.education.quiz.repository.QuizLeaveTrackingRepository;
+import com.ctrlf.common.dto.PageResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
@@ -585,19 +587,18 @@ public class SeedDataRunner implements CommandLineRunner {
             try {
                 log.info("infra-service에서 유저 목록 조회 중... (baseUrl: {}, 시도: {}/{})", infraBaseUrl, attempt, maxRetries);
                 
-                // infra-service의 /admin/users API 호출
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> userList = restClient.get()
-                    .uri("/admin/users?page=0&size=200")
+                // infra-service의 /admin/users/search API 호출
+                PageResponse<Map<String, Object>> pageResponse = restClient.get()
+                    .uri("/admin/users/search?page=0&size=200")
                     .retrieve()
-                    .body(List.class);
+                    .body(new ParameterizedTypeReference<PageResponse<Map<String, Object>>>() {});
                 
-                if (userList == null || userList.isEmpty()) {
+                if (pageResponse == null || pageResponse.getItems() == null || pageResponse.getItems().isEmpty()) {
                     log.warn("infra-service에서 유저 목록이 비어있습니다.");
                     return users;
                 }
             
-            for (Map<String, Object> userMap : userList) {
+            for (Map<String, Object> userMap : pageResponse.getItems()) {
                 try {
                     String userId = (String) userMap.get("id");
                     String username = (String) userMap.get("username");
