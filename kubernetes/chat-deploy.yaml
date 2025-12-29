@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-service
+  namespace: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chat-service
+  template:
+    metadata:
+      labels:
+        app: chat-service
+    spec:
+      containers:
+        - name: chat-service
+          image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/chat-service:latest
+          ports:
+            - containerPort: 9001 # Spring Boot 앱 포트
+          imagePullPolicy: Always
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod" # 배포할 때
+            #  value: "dev"  #개발할 때

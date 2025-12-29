@@ -7,10 +7,6 @@ server:
       force: true
 
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/db
-    username: postgres
-    password: postgres
   jpa:
     properties:
       hibernate:
@@ -26,12 +22,8 @@ spring:
     validate-on-migrate: false
     out-of-order: true
     create-schemas: true
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8090/realms/ctrlf
-
+  profiles:
+    active: dev
 management:
   endpoints:
     web:
@@ -43,18 +35,6 @@ management:
       probes:
         enabled: true
 
-# AI 서버 설정
-app:
-  video:
-    ai:
-      base-url: http://localhost:8000
-      token: "" # 내부 호출 토큰 (필요시 설정)
-  quiz:
-    ai:
-      base-url: http://localhost:8000
-      token: "" # 내부 호출 토큰 (필요시 설정)
-  infra:
-    base-url: http://localhost:9003 # infra-service 베이스 URL
 
 # 개발 환경 설정
 dev:

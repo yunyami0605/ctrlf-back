@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://10.0.147.41:5432/db
+    username: postgres
+    password: postgres
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://10.0.147.41:8090/realms/ctrlf
+ai:
+  gateway:
+    url: http://192.168.0.112:8000

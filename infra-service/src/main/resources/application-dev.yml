@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/db
+    username: postgres
+    password: postgres
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090/realms/ctrlf
+
+keycloak:
+  admin:
+    base-url: http://localhost:8090
+    realm: ctrlf
+    client-id: infra-admin
+    client-secret: changeme
+
+app:
+  rag:
+    ai:
+      base-url: http://localhost:8000
+      token: changeme
+      timeout-seconds: 10

@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-service
+  namespace: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infra-service
+  template:
+    metadata:
+      labels:
+        app: infra-service
+    spec:
+      containers:
+        - name: infra-service
+          # 여기에 아까 성공한 ECR 이미지 주소를 정확히 넣으세요a
+          image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/infra-service:latest
+
+          ports:
+            - containerPort: 9003 # Spring Boot 앱 포트
+          imagePullPolicy: Always
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"

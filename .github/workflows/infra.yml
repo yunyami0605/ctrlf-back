@@ -1,0 +1,82 @@
+name: CI Infrastructure Service
+
+on:
+  push:
+    branches: [ "test" ]
+    paths:
+      - 'infra-service/**'
+      - 'build.gradle'
+      - '.github/workflows/infra.yml'
+      - 'kubernetes/infra*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # gradlew 파일에 실행 권한을 부여합니다 (리눅스 환경 필수)
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 1. Gradle 빌드 (./ 를 붙여야 리눅스에서 실행됩니다)
+      - name: Build with Gradle
+        run: ./gradlew :infra-service:build -x test
+
+      # 2. AWS 자격 증명 설정
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # 3. ECR 로그인
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 4. Docker 이미지 빌드 및 푸시
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: argocd/infra-service
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest -f infra-service/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+
+      #   # 5. Kubernetes Manifest 파일 업데이트 (태그 자동 변경)
+      # - name: Update Kubernetes resources
+      #   run: |
+      #     # 현재 파일 내용 확인 (디버깅용)
+      #     echo "Before update:"
+      #     grep "image:" kubernetes/infra-deploy.yaml
+      #     # sed 명령어로 deployment 파일의 이미지 태그 부분을 변경합니다.
+      #     sed -i "s|image:.*|image: ${{ env.IMAGE }}|g" kubernetes/infra-deploy.yaml
+
+      #     echo "After update:"
+      #     grep "image:" kubernetes/infra-deploy.yaml
+
+      #   # 6. 변경 사항이 있을 때만 커밋
+      # - name: Commit and push changes
+      #   run: |
+      #       git config --global user.email "github-actions@github.com"
+      #       git config --global user.name "github-actions"
+      #       git add kubernetes/infra-deploy.yaml
+
+      #       # 변경사항이 있다면 pull 후 push 하도록 수정
+      #       if [ -z "$(git status --porcelain)" ]; then
+      #         echo "No changes"
+      #       else
+      #         git commit -m "Update image tag [skip ci]"
+      #         # push 전에 한번 더 pull을 받아 충돌 방지
+      #         git pull --rebase origin test
+      #         git push origin test
+      #       fi

@@ -2,11 +2,6 @@ server:
   port: 9003
 
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/db
-    username: postgres
-    password: postgres
-
   jpa:
     hibernate:
       ddl-auto: validate
@@ -14,18 +9,13 @@ spring:
       hibernate.default_schema: infra
       hibernate.format_sql: true
       hibernate.query.escapeCharacter: '\\'
-
   flyway:
     enabled: true
     schemas: infra
     default-schema: infra
     locations: classpath:db/migration
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8090/realms/ctrlf
-
+  profiles:
+    active: dev
 management:
   endpoints:
     web:
@@ -37,27 +27,12 @@ management:
       probes:
         enabled: true
 
-keycloak:
-  admin:
-    base-url: http://localhost:8090
-    realm: ctrlf
-    client-id: infra-admin
-    client-secret: changeme
-
-# Swagger/OpenAPI 설정
 app:
   api:
     title: Infra Service API
-    description: Infra service endpoints for Keycloak admin operations
+    description: 인프라 설정
     security:
       enabled: true
-
   s3:
     bucket: ctrl-s3
     ttlSeconds: 600
-
-  rag:
-    ai:
-      base-url: http://localhost:8000
-      token: changeme # 선택
-      timeout-seconds: 10
