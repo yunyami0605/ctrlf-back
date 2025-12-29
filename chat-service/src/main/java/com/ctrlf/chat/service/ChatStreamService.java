@@ -11,85 +11,77 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import reactor.core.publisher.Flux;
+import reactor.core.Disposable;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatStreamService {
 
     private final ChatAiFacade chatAiFacade;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatSessionRepository chatSessionRepository;
-
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final ExecutorService executor = Executors.newCachedThreadPool();
 
-    public void stream(UUID messageId, SseEmitter emitter) {
-        executor.execute(() -> {
-            try {
-                // 1) 연결 직후 meta 이벤트
-                emitter.send(
-                    SseEmitter.event()
-                        .name("meta")
-                        .data("stream-start:" + messageId)
+    public SseEmitter stream(UUID messageId) {
+        SseEmitter emitter = new SseEmitter(0L); // 무제한
+
+        try {
+            ChatMessage assistant =
+                chatMessageRepository.findById(messageId).orElseThrow();
+
+            UUID sessionId = assistant.getSessionId();
+            ChatSession session =
+                chatSessionRepository.findActiveById(sessionId);
+
+            if (session == null) {
+                throw new IllegalArgumentException("세션 없음: " + sessionId);
+            }
+
+            ChatMessage lastUser =
+                chatMessageRepository
+                    .findTopBySessionIdAndRoleOrderByCreatedAtDesc(
+                        sessionId, "user")
+                    .orElseThrow();
+
+            ChatCompletionRequest req =
+                new ChatCompletionRequest(
+                    "stream-" + messageId,
+                    sessionId,
+                    session.getUserUuid(),
+                    "EMPLOYEE",
+                    session.getDomain(),
+                    session.getDomain(),
+                    "WEB",
+                    List.of(new Message("user", lastUser.getContent()))
                 );
 
-                // 2) assistant 메시지 조회 (결과 저장 대상)
-                ChatMessage assistant =
-                    chatMessageRepository.findById(messageId).orElseThrow();
+            StringBuilder answerBuf = new StringBuilder();
 
-                UUID sessionId = assistant.getSessionId();
+            // 🔹 스트림 시작 알림
+            emitter.send(SseEmitter.event()
+                .name("meta")
+                .data("stream-start"));
 
-                // 3) 세션 정보 조회 (domain, userUuid)
-                ChatSession session = chatSessionRepository.findActiveById(sessionId);
-                if (session == null) {
-                    throw new IllegalArgumentException("세션을 찾을 수 없습니다: " + sessionId);
-                }
-
-                // 4) 해당 세션의 가장 최근 user 메시지
-                ChatMessage lastUser =
-                    chatMessageRepository
-                        .findTopBySessionIdAndRoleOrderByCreatedAtDesc(
-                            sessionId,
-                            "user"
-                        )
-                        .orElseThrow();
-
-                // 5) AI 스트리밍 요청 생성
-                // request_id: messageId를 기반으로 생성 (중복 방지용)
-                String requestId = "stream-" + messageId.toString();
-                ChatCompletionRequest req =
-                    new ChatCompletionRequest(
-                        requestId,  // request_id 추가 (스트리밍 필수)
-                        sessionId,
-                        session.getUserUuid(),
-                        "EMPLOYEE",
-                        session.getDomain(),  // department
-                        session.getDomain(),  // domain
-                        "WEB",
-                        List.of(new Message("user", lastUser.getContent()))
-                    );
-
-                // 6) AI NDJSON 스트림 구독
-                Flux<String> aiStream = chatAiFacade.streamChat(req);
-
-                StringBuilder answerBuf = new StringBuilder();
-
-                aiStream.subscribe(
+            Disposable subscription =
+                chatAiFacade.streamChat(req).subscribe(
                     line -> handleLine(line, emitter, answerBuf),
-                    error -> handleError(error, emitter),
+                    error -> handleStreamError(error, emitter),
                     () -> handleComplete(emitter, assistant, answerBuf)
                 );
 
-            } catch (Exception e) {
-                handleError(e, emitter);
-            }
-        });
+            emitter.onCompletion(subscription::dispose);
+            emitter.onTimeout(subscription::dispose);
+
+        } catch (Exception e) {
+            handleStreamError(e, emitter);
+        }
+
+        return emitter;
     }
 
     private void handleLine(
@@ -99,53 +91,23 @@ public class ChatStreamService {
     ) {
         try {
             JsonNode json = objectMapper.readTree(line);
-            String type = json.get("type").asText();
+            String type = json.path("type").asText();
 
-            switch (type) {
-                case "token" -> {
-                    String text = json.get("text").asText();
-                    answerBuf.append(text);
-                    emitter.send(
-                        SseEmitter.event()
-                            .name("token")
-                            .data(text)
-                    );
-                }
-                case "meta" -> {
-                    emitter.send(
-                        SseEmitter.event()
-                            .name("meta")
-                            .data(json.toString())
-                    );
-                }
-                case "done" -> {
-                    emitter.send(
-                        SseEmitter.event()
-                            .name("done")
-                            .data("END")
-                    );
-                    emitter.complete();
-                }
-                case "error" -> {
-                    emitter.send(
-                        SseEmitter.event()
-                            .name("error")
-                            .data(json.toString())
-                    );
-                    emitter.completeWithError(
-                        new RuntimeException("AI error")
-                    );
-                }
-                default -> {
-                    emitter.send(
-                        SseEmitter.event()
-                            .name("token")
-                            .data(line)
-                    );
-                }
+            if ("token".equals(type)) {
+                String text = json.path("text").asText();
+                answerBuf.append(text);
+                emitter.send(
+                    SseEmitter.event()
+                        .name("token")
+                        .data(text)
+                );
             }
+
+            // ❗ meta / done / error 는 여기서 처리하지 않음
+
         } catch (Exception e) {
-            handleError(e, emitter);
+            // JSON 파싱 실패 → 무시 (NDJSON chunk 경계 보호)
+            log.debug("skip non-json line: {}", line);
         }
     }
 
@@ -155,31 +117,29 @@ public class ChatStreamService {
         StringBuilder answerBuf
     ) {
         try {
-            // ✅ 최종 답변 저장
             assistant.updateContent(answerBuf.toString());
             chatMessageRepository.save(assistant);
 
-            try {
-                emitter.send(
-                    SseEmitter.event()
-                        .name("done")
-                        .data("END")
-                );
-            } catch (Exception ignored) {}
+            emitter.send(
+                SseEmitter.event()
+                    .name("done")
+                    .data("END")
+            );
+        } catch (Exception e) {
+            log.error("final save error", e);
         } finally {
             emitter.complete();
         }
     }
 
-    private void handleError(Throwable error, SseEmitter emitter) {
+    private void handleStreamError(Throwable error, SseEmitter emitter) {
         try {
             emitter.send(
                 SseEmitter.event()
                     .name("error")
                     .data(error.getMessage())
             );
-        } catch (Exception ignored) {
-        }
-        emitter.completeWithError(error);
+        } catch (Exception ignored) {}
+        emitter.complete();
     }
 }

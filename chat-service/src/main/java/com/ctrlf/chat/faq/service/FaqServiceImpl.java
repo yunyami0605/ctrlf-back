@@ -134,12 +134,15 @@ public class FaqServiceImpl implements FaqService {
             throw new IllegalArgumentException("PII가 감지된 FAQ 후보는 Draft를 생성할 수 없습니다.");
         }
 
-        if (candidate.getAvgIntentConfidence() == null || candidate.getAvgIntentConfidence() < 0.7) {
+        // 의도 신뢰도 검증 (테스트 환경에서는 완화 가능)
+        double minConfidence = 0.7;
+        // TODO: 프로파일별로 조정 가능 (예: local 프로파일에서는 0.5로 완화)
+        if (candidate.getAvgIntentConfidence() == null || candidate.getAvgIntentConfidence() < minConfidence) {
             candidate.setStatus(FaqCandidate.CandidateStatus.EXCLUDED);
             faqCandidateRepository.save(candidate);
             throw new IllegalArgumentException(
-                String.format("의도 신뢰도가 부족합니다. (현재: %s, 최소 요구: 0.7)",
-                    candidate.getAvgIntentConfidence())
+                String.format("의도 신뢰도가 부족합니다. (현재: %s, 최소 요구: %.1f)",
+                    candidate.getAvgIntentConfidence(), minConfidence)
             );
         }
 
@@ -230,6 +233,7 @@ public class FaqServiceImpl implements FaqService {
         faq.setAnswer(answer);
         faq.setDomain(draft.getDomain());
         faq.setIsActive(true);
+        faq.setNeedsRecategorization(false);  // 기본값 설정
         faq.setCreatedAt(Instant.now());
         faq.setUpdatedAt(Instant.now());
 

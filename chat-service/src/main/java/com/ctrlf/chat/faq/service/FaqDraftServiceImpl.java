@@ -85,6 +85,7 @@ public class FaqDraftServiceImpl implements FaqDraftService {
         faq.setAnswer(answer);
         faq.setDomain(draft.getDomain());
         faq.setIsActive(true);
+        faq.setNeedsRecategorization(false);  // 기본값 설정
         faq.setCreatedAt(Instant.now());
         faq.setUpdatedAt(Instant.now());
         faqRepository.save(faq);
