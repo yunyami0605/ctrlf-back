@@ -14,12 +14,14 @@
 ## 공통 헤더
 
 ### 인증이 필요한 API
+
 ```
 Authorization: Bearer {JWT_TOKEN}
 Content-Type: application/json
 ```
 
 ### 내부 API
+
 ```
 X-Internal-Token: {INTERNAL_TOKEN}
 Content-Type: application/json
@@ -34,6 +36,7 @@ Content-Type: application/json
 문서를 S3에 업로드한 후 메타 정보를 등록합니다.
 
 **엔드포인트**
+
 ```
 POST /rag/documents/upload
 ```
@@ -41,6 +44,7 @@ POST /rag/documents/upload
 **인증**: ✅ JWT Bearer Token 필요
 
 **요청 Body**
+
 ```json
 {
   "title": "산업안전 규정집 v3",
@@ -49,13 +53,14 @@ POST /rag/documents/upload
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `title` | string | ✅ | 문서 제목 |
-| `domain` | string | ✅ | 문서 도메인 (예: HR, SEC, EDU) |
-| `fileUrl` | string | ✅ | S3 파일 URL |
+| 필드      | 타입   | 필수 | 설명                           |
+| --------- | ------ | ---- | ------------------------------ |
+| `title`   | string | ✅   | 문서 제목                      |
+| `domain`  | string | ✅   | 문서 도메인 (예: HR, SEC, EDU) |
+| `fileUrl` | string | ✅   | S3 파일 URL                    |
 
 **응답 (201 Created)**
+
 ```json
 {
   "documentId": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -65,6 +70,7 @@ POST /rag/documents/upload
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 요청
 - `401 Unauthorized`: 인증 실패
 - `403 Forbidden`: 권한 없음
@@ -77,6 +83,7 @@ POST /rag/documents/upload
 등록된 문서 목록을 필터링 및 페이징하여 조회합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents
 ```
@@ -85,17 +92,18 @@ GET /rag/documents
 
 **Query Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `domain` | string | ❌ | 문서 도메인 필터 |
-| `uploaderUuid` | string | ❌ | 업로더 UUID 필터 |
-| `startDate` | string | ❌ | 기간 시작 (yyyy-MM-dd) |
-| `endDate` | string | ❌ | 기간 끝 (yyyy-MM-dd) |
-| `keyword` | string | ❌ | 제목 키워드 검색 |
-| `page` | integer | ❌ | 페이지 번호 (기본값: 0) |
-| `size` | integer | ❌ | 페이지 크기 (기본값: 10) |
+| 파라미터       | 타입    | 필수 | 설명                     |
+| -------------- | ------- | ---- | ------------------------ |
+| `domain`       | string  | ❌   | 문서 도메인 필터         |
+| `uploaderUuid` | string  | ❌   | 업로더 UUID 필터         |
+| `startDate`    | string  | ❌   | 기간 시작 (yyyy-MM-dd)   |
+| `endDate`      | string  | ❌   | 기간 끝 (yyyy-MM-dd)     |
+| `keyword`      | string  | ❌   | 제목 키워드 검색         |
+| `page`         | integer | ❌   | 페이지 번호 (기본값: 0)  |
+| `size`         | integer | ❌   | 페이지 크기 (기본값: 10) |
 
 **응답 (200 OK)**
+
 ```json
 [
   {
@@ -109,6 +117,7 @@ GET /rag/documents
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 필터 값
 - `401 Unauthorized`: 인증 실패
 - `403 Forbidden`: 권한 없음
@@ -121,6 +130,7 @@ GET /rag/documents
 문서의 메타 정보를 수정합니다.
 
 **엔드포인트**
+
 ```
 PATCH /rag/documents/{id}
 ```
@@ -129,11 +139,12 @@ PATCH /rag/documents/{id}
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `id` | string | ✅ | 문서 ID (UUID) |
+| 파라미터 | 타입   | 필수 | 설명           |
+| -------- | ------ | ---- | -------------- |
+| `id`     | string | ✅   | 문서 ID (UUID) |
 
 **요청 Body**
+
 ```json
 {
   "title": "산업안전 규정집 v4",
@@ -142,13 +153,14 @@ PATCH /rag/documents/{id}
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `title` | string | ❌ | 문서 제목 |
-| `domain` | string | ❌ | 문서 도메인 |
-| `fileUrl` | string | ❌ | S3 파일 URL |
+| 필드      | 타입   | 필수 | 설명        |
+| --------- | ------ | ---- | ----------- |
+| `title`   | string | ❌   | 문서 제목   |
+| `domain`  | string | ❌   | 문서 도메인 |
+| `fileUrl` | string | ❌   | S3 파일 URL |
 
 **응답 (200 OK)**
+
 ```json
 {
   "documentId": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -164,6 +176,7 @@ PATCH /rag/documents/{id}
 문서를 삭제합니다.
 
 **엔드포인트**
+
 ```
 DELETE /rag/documents/{id}
 ```
@@ -172,11 +185,12 @@ DELETE /rag/documents/{id}
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `id` | string | ✅ | 문서 ID (UUID) |
+| 파라미터 | 타입   | 필수 | 설명           |
+| -------- | ------ | ---- | -------------- |
+| `id`     | string | ✅   | 문서 ID (UUID) |
 
 **응답 (200 OK)**
+
 ```json
 {
   "documentId": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -192,6 +206,7 @@ DELETE /rag/documents/{id}
 문서의 재처리를 요청합니다.
 
 **엔드포인트**
+
 ```
 POST /rag/documents/{id}/reprocess
 ```
@@ -200,11 +215,12 @@ POST /rag/documents/{id}/reprocess
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `id` | string | ✅ | 문서 ID (UUID) |
+| 파라미터 | 타입   | 필수 | 설명           |
+| -------- | ------ | ---- | -------------- |
+| `id`     | string | ✅   | 문서 ID (UUID) |
 
 **요청 Body**
+
 ```json
 {
   "title": "산업안전 규정집 v4",
@@ -214,14 +230,15 @@ POST /rag/documents/{id}/reprocess
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `title` | string | ❌ | 문서 제목 |
-| `domain` | string | ❌ | 문서 도메인 |
-| `fileUrl` | string | ❌ | S3 파일 URL |
-| `requestedBy` | string | ❌ | 요청자 UUID |
+| 필드          | 타입   | 필수 | 설명        |
+| ------------- | ------ | ---- | ----------- |
+| `title`       | string | ❌   | 문서 제목   |
+| `domain`      | string | ❌   | 문서 도메인 |
+| `fileUrl`     | string | ❌   | S3 파일 URL |
+| `requestedBy` | string | ❌   | 요청자 UUID |
 
 **응답 (202 Accepted)**
+
 ```json
 {
   "documentId": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -239,6 +256,7 @@ POST /rag/documents/{id}/reprocess
 문서의 임베딩 처리 상태를 조회합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents/{id}/status
 ```
@@ -247,11 +265,12 @@ GET /rag/documents/{id}/status
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `id` | string | ✅ | 문서 ID (UUID) |
+| 파라미터 | 타입   | 필수 | 설명           |
+| -------- | ------ | ---- | -------------- |
+| `id`     | string | ✅   | 문서 ID (UUID) |
 
 **응답 (200 OK)**
+
 ```json
 {
   "documentId": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -262,12 +281,14 @@ GET /rag/documents/{id}/status
 ```
 
 **상태 값**
+
 - `QUEUED`: 대기 중
 - `PROCESSING`: 처리 중
 - `COMPLETED`: 처리 완료
 - `FAILED`: 처리 실패
 
 **에러 응답**
+
 - `404 Not Found`: 문서를 찾을 수 없음
 
 ---
@@ -277,6 +298,7 @@ GET /rag/documents/{id}/status
 문서의 메타 정보를 조회합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents/{id}
 ```
@@ -285,11 +307,12 @@ GET /rag/documents/{id}
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `id` | string | ✅ | 문서 ID (UUID) |
+| 파라미터 | 타입   | 필수 | 설명           |
+| -------- | ------ | ---- | -------------- |
+| `id`     | string | ✅   | 문서 ID (UUID) |
 
 **응답 (200 OK)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -301,6 +324,7 @@ GET /rag/documents/{id}
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 문서를 찾을 수 없음
 
 ---
@@ -310,6 +334,7 @@ GET /rag/documents/{id}
 문서의 원문 텍스트를 조회합니다. S3에서 파일을 다운로드하여 텍스트를 추출합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents/{id}/text
 ```
@@ -318,11 +343,12 @@ GET /rag/documents/{id}/text
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `id` | string | ✅ | 문서 ID (UUID) |
+| 파라미터 | 타입   | 필수 | 설명           |
+| -------- | ------ | ---- | -------------- |
+| `id`     | string | ✅   | 문서 ID (UUID) |
 
 **응답 (200 OK)**
+
 ```json
 {
   "documentId": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -331,6 +357,7 @@ GET /rag/documents/{id}/text
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 문서를 찾을 수 없음
 - `500 Internal Server Error`: 텍스트 추출 실패
 
@@ -343,6 +370,7 @@ GET /rag/documents/{id}/text
 FastAPI가 문서 청크를 bulk upsert합니다. 임베딩 벡터는 Milvus에 저장되고, DB에는 chunk_text만 저장됩니다.
 
 **엔드포인트**
+
 ```
 POST /rag/documents/{documentId}/chunks:bulk
 ```
@@ -351,11 +379,12 @@ POST /rag/documents/{documentId}/chunks:bulk
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 문서 ID (UUID) |
+| 파라미터     | 타입   | 필수 | 설명           |
+| ------------ | ------ | ---- | -------------- |
+| `documentId` | string | ✅   | 문서 ID (UUID) |
 
 **요청 Body**
+
 ```json
 {
   "chunks": [
@@ -374,15 +403,16 @@ POST /rag/documents/{documentId}/chunks:bulk
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `chunks` | array | ✅ | 청크 리스트 |
-| `chunks[].chunkIndex` | integer | ✅ | 청크 번호 |
-| `chunks[].chunkText` | string | ✅ | 청크 텍스트 |
-| `chunks[].chunkMeta` | object | ❌ | 메타데이터 |
-| `requestId` | string | ❌ | 멱등 키 |
+| 필드                  | 타입    | 필수 | 설명        |
+| --------------------- | ------- | ---- | ----------- |
+| `chunks`              | array   | ✅   | 청크 리스트 |
+| `chunks[].chunkIndex` | integer | ✅   | 청크 번호   |
+| `chunks[].chunkText`  | string  | ✅   | 청크 텍스트 |
+| `chunks[].chunkMeta`  | object  | ❌   | 메타데이터  |
+| `requestId`           | string  | ❌   | 멱등 키     |
 
 **응답 (200 OK)**
+
 ```json
 {
   "saved": true,
@@ -391,6 +421,7 @@ POST /rag/documents/{documentId}/chunks:bulk
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 요청
 - `401 Unauthorized`: 내부 토큰 오류
 - `404 Not Found`: 문서를 찾을 수 없음
@@ -402,6 +433,7 @@ POST /rag/documents/{documentId}/chunks:bulk
 FastAPI가 임베딩 실패한 청크 로그를 bulk upsert합니다.
 
 **엔드포인트**
+
 ```
 POST /rag/documents/{documentId}/fail-chunks:bulk
 ```
@@ -410,11 +442,12 @@ POST /rag/documents/{documentId}/fail-chunks:bulk
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 문서 ID (UUID) |
+| 파라미터     | 타입   | 필수 | 설명           |
+| ------------ | ------ | ---- | -------------- |
+| `documentId` | string | ✅   | 문서 ID (UUID) |
 
 **요청 Body**
+
 ```json
 {
   "fails": [
@@ -427,14 +460,15 @@ POST /rag/documents/{documentId}/fail-chunks:bulk
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `fails` | array | ✅ | 실패 청크 리스트 |
-| `fails[].chunkIndex` | integer | ✅ | 청크 번호 |
-| `fails[].failReason` | string | ✅ | 실패 사유 |
-| `requestId` | string | ❌ | 멱등 키 |
+| 필드                 | 타입    | 필수 | 설명             |
+| -------------------- | ------- | ---- | ---------------- |
+| `fails`              | array   | ✅   | 실패 청크 리스트 |
+| `fails[].chunkIndex` | integer | ✅   | 청크 번호        |
+| `fails[].failReason` | string  | ✅   | 실패 사유        |
+| `requestId`          | string  | ❌   | 멱등 키          |
 
 **응답 (200 OK)**
+
 ```json
 {
   "saved": true,
@@ -443,6 +477,7 @@ POST /rag/documents/{documentId}/fail-chunks:bulk
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 요청
 - `401 Unauthorized`: 내부 토큰 오류
 - `404 Not Found`: 문서를 찾을 수 없음
@@ -456,6 +491,7 @@ POST /rag/documents/{documentId}/fail-chunks:bulk
 사규 목록을 document_id별로 그룹화하여 조회합니다. 검색, 상태 필터, 페이지네이션을 지원합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents/policies
 ```
@@ -464,14 +500,15 @@ GET /rag/documents/policies
 
 **Query Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `search` | string | ❌ | document_id 또는 제목 검색어 |
-| `status` | string | ❌ | 상태 필터 (ACTIVE, DRAFT, PENDING, ARCHIVED, 전체). ARCHIVED를 조회하려면 status=ARCHIVED로 명시적으로 지정 |
-| `page` | integer | ❌ | 페이지 번호 (기본값: 0) |
-| `size` | integer | ❌ | 페이지 크기 (기본값: 20) |
+| 파라미터 | 타입    | 필수 | 설명                                                                                                        |
+| -------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------- |
+| `search` | string  | ❌   | document_id 또는 제목 검색어                                                                                |
+| `status` | string  | ❌   | 상태 필터 (ACTIVE, DRAFT, PENDING, ARCHIVED, 전체). ARCHIVED를 조회하려면 status=ARCHIVED로 명시적으로 지정 |
+| `page`   | integer | ❌   | 페이지 번호 (기본값: 0)                                                                                     |
+| `size`   | integer | ❌   | 페이지 크기 (기본값: 20)                                                                                    |
 
 **응답 (200 OK)**
+
 ```json
 {
   "items": [
@@ -502,6 +539,7 @@ GET /rag/documents/policies
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 필터 값
 
 ---
@@ -511,6 +549,7 @@ GET /rag/documents/policies
 document_id로 사규의 모든 버전을 조회합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents/policies/{documentId}
 ```
@@ -519,11 +558,12 @@ GET /rag/documents/policies/{documentId}
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 사규 document_id (예: POL-EDU-015) |
+| 파라미터     | 타입   | 필수 | 설명                               |
+| ------------ | ------ | ---- | ---------------------------------- |
+| `documentId` | string | ✅   | 사규 document_id (예: POL-EDU-015) |
 
 **응답 (200 OK)**
+
 ```json
 {
   "documentId": "POL-EDU-015",
@@ -548,6 +588,7 @@ GET /rag/documents/policies/{documentId}
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 사규를 찾을 수 없음
 
 ---
@@ -557,6 +598,7 @@ GET /rag/documents/policies/{documentId}
 특정 버전의 상세 정보를 조회합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents/policies/{documentId}/versions/{version}
 ```
@@ -565,12 +607,13 @@ GET /rag/documents/policies/{documentId}/versions/{version}
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 사규 document_id (예: POL-EDU-015) |
-| `version` | integer | ✅ | 버전 번호 (예: 1) |
+| 파라미터     | 타입    | 필수 | 설명                               |
+| ------------ | ------- | ---- | ---------------------------------- |
+| `documentId` | string  | ✅   | 사규 document_id (예: POL-EDU-015) |
+| `version`    | integer | ✅   | 버전 번호 (예: 1)                  |
 
 **응답 (200 OK)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -588,6 +631,7 @@ GET /rag/documents/policies/{documentId}/versions/{version}
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 버전을 찾을 수 없음
 
 ---
@@ -597,6 +641,7 @@ GET /rag/documents/policies/{documentId}/versions/{version}
 사규의 모든 버전 목록을 조회합니다.
 
 **엔드포인트**
+
 ```
 GET /rag/documents/policies/{documentId}/versions
 ```
@@ -605,11 +650,12 @@ GET /rag/documents/policies/{documentId}/versions
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 사규 document_id (예: POL-EDU-015) |
+| 파라미터     | 타입   | 필수 | 설명                               |
+| ------------ | ------ | ---- | ---------------------------------- |
+| `documentId` | string | ✅   | 사규 document_id (예: POL-EDU-015) |
 
 **응답 (200 OK)**
+
 ```json
 [
   {
@@ -629,6 +675,7 @@ GET /rag/documents/policies/{documentId}/versions
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 사규를 찾을 수 없음
 
 ---
@@ -638,6 +685,7 @@ GET /rag/documents/policies/{documentId}/versions
 새로운 사규를 생성합니다. 초기 버전(v1)이 DRAFT 상태로 생성됩니다.
 
 **엔드포인트**
+
 ```
 POST /rag/documents/policies
 ```
@@ -645,6 +693,7 @@ POST /rag/documents/policies
 **인증**: ✅ JWT Bearer Token 필요
 
 **요청 Body**
+
 ```json
 {
   "documentId": "POL-EDU-015",
@@ -655,15 +704,16 @@ POST /rag/documents/policies
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `documentId` | string | ✅ | 사규 문서 ID (예: POL-EDU-015) |
-| `title` | string | ✅ | 사규 제목 |
-| `domain` | string | ✅ | 사규 도메인 (예: EDU, HR, SEC) |
-| `fileUrl` | string | ❌ | S3 파일 URL |
-| `changeSummary` | string | ❌ | 변경 요약 |
+| 필드            | 타입   | 필수 | 설명                           |
+| --------------- | ------ | ---- | ------------------------------ |
+| `documentId`    | string | ✅   | 사규 문서 ID (예: POL-EDU-015) |
+| `title`         | string | ✅   | 사규 제목                      |
+| `domain`        | string | ✅   | 사규 도메인 (예: EDU, HR, SEC) |
+| `fileUrl`       | string | ❌   | S3 파일 URL                    |
+| `changeSummary` | string | ❌   | 변경 요약                      |
 
 **응답 (201 Created)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -676,6 +726,7 @@ POST /rag/documents/policies
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 요청
 - `409 Conflict`: 이미 존재하는 document_id
 
@@ -686,6 +737,7 @@ POST /rag/documents/policies
 기존 사규의 새 버전을 생성합니다. 버전 번호는 자동으로 증가하며 DRAFT 상태로 생성됩니다.
 
 **엔드포인트**
+
 ```
 POST /rag/documents/policies/{documentId}/versions
 ```
@@ -694,11 +746,12 @@ POST /rag/documents/policies/{documentId}/versions
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 사규 document_id (예: POL-EDU-015) |
+| 파라미터     | 타입   | 필수 | 설명                               |
+| ------------ | ------ | ---- | ---------------------------------- |
+| `documentId` | string | ✅   | 사규 document_id (예: POL-EDU-015) |
 
 **요청 Body**
+
 ```json
 {
   "fileUrl": "s3://ctrl-s3/docs/policy_v2.pdf",
@@ -706,12 +759,13 @@ POST /rag/documents/policies/{documentId}/versions
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `fileUrl` | string | ❌ | S3 파일 URL |
-| `changeSummary` | string | ❌ | 변경 요약 |
+| 필드            | 타입   | 필수 | 설명        |
+| --------------- | ------ | ---- | ----------- |
+| `fileUrl`       | string | ❌   | S3 파일 URL |
+| `changeSummary` | string | ❌   | 변경 요약   |
 
 **응답 (201 Created)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844b",
@@ -723,6 +777,7 @@ POST /rag/documents/policies/{documentId}/versions
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 사규를 찾을 수 없음
 
 ---
@@ -732,6 +787,7 @@ POST /rag/documents/policies/{documentId}/versions
 사규 버전의 change_summary나 파일을 수정합니다.
 
 **엔드포인트**
+
 ```
 PATCH /rag/documents/policies/{documentId}/versions/{version}
 ```
@@ -740,12 +796,13 @@ PATCH /rag/documents/policies/{documentId}/versions/{version}
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 사규 document_id (예: POL-EDU-015) |
-| `version` | integer | ✅ | 버전 번호 (예: 2) |
+| 파라미터     | 타입    | 필수 | 설명                               |
+| ------------ | ------- | ---- | ---------------------------------- |
+| `documentId` | string  | ✅   | 사규 document_id (예: POL-EDU-015) |
+| `version`    | integer | ✅   | 버전 번호 (예: 2)                  |
 
 **요청 Body**
+
 ```json
 {
   "changeSummary": "퀴즈 리포트(오답 분석/재학습) 및 배포 캘린더 추가(초안)",
@@ -753,12 +810,13 @@ PATCH /rag/documents/policies/{documentId}/versions/{version}
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `changeSummary` | string | ❌ | 변경 요약 |
-| `fileUrl` | string | ❌ | S3 파일 URL |
+| 필드            | 타입   | 필수 | 설명        |
+| --------------- | ------ | ---- | ----------- |
+| `changeSummary` | string | ❌   | 변경 요약   |
+| `fileUrl`       | string | ❌   | S3 파일 URL |
 
 **응답 (200 OK)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844b",
@@ -770,6 +828,7 @@ PATCH /rag/documents/policies/{documentId}/versions/{version}
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 버전을 찾을 수 없음
 
 ---
@@ -779,6 +838,7 @@ PATCH /rag/documents/policies/{documentId}/versions/{version}
 사규 버전의 상태를 변경합니다. ACTIVE로 변경 시 같은 document_id의 다른 ACTIVE 버전은 자동으로 DRAFT로 변경됩니다.
 
 **엔드포인트**
+
 ```
 PATCH /rag/documents/policies/{documentId}/versions/{version}/status
 ```
@@ -787,23 +847,25 @@ PATCH /rag/documents/policies/{documentId}/versions/{version}/status
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 사규 document_id (예: POL-EDU-015) |
-| `version` | integer | ✅ | 버전 번호 (예: 2) |
+| 파라미터     | 타입    | 필수 | 설명                               |
+| ------------ | ------- | ---- | ---------------------------------- |
+| `documentId` | string  | ✅   | 사규 document_id (예: POL-EDU-015) |
+| `version`    | integer | ✅   | 버전 번호 (예: 2)                  |
 
 **요청 Body**
+
 ```json
 {
   "status": "ACTIVE"
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `status` | string | ✅ | 상태 (ACTIVE, DRAFT, PENDING, ARCHIVED) |
+| 필드     | 타입   | 필수 | 설명                                    |
+| -------- | ------ | ---- | --------------------------------------- |
+| `status` | string | ✅   | 상태 (ACTIVE, DRAFT, PENDING, ARCHIVED) |
 
 **응답 (200 OK)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844b",
@@ -815,6 +877,7 @@ PATCH /rag/documents/policies/{documentId}/versions/{version}/status
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 상태 값
 - `404 Not Found`: 버전을 찾을 수 없음
 
@@ -825,6 +888,7 @@ PATCH /rag/documents/policies/{documentId}/versions/{version}/status
 사규 버전의 파일을 교체합니다.
 
 **엔드포인트**
+
 ```
 PUT /rag/documents/policies/{documentId}/versions/{version}/file
 ```
@@ -833,23 +897,25 @@ PUT /rag/documents/policies/{documentId}/versions/{version}/file
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `documentId` | string | ✅ | 사규 document_id (예: POL-EDU-015) |
-| `version` | integer | ✅ | 버전 번호 (예: 2) |
+| 파라미터     | 타입    | 필수 | 설명                               |
+| ------------ | ------- | ---- | ---------------------------------- |
+| `documentId` | string  | ✅   | 사규 document_id (예: POL-EDU-015) |
+| `version`    | integer | ✅   | 버전 번호 (예: 2)                  |
 
 **요청 Body**
+
 ```json
 {
   "fileUrl": "s3://ctrl-s3/docs/policy_v2_new.pdf"
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `fileUrl` | string | ✅ | S3 파일 URL |
+| 필드      | 타입   | 필수 | 설명        |
+| --------- | ------ | ---- | ----------- |
+| `fileUrl` | string | ✅   | S3 파일 URL |
 
 **응답 (200 OK)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844b",
@@ -861,6 +927,7 @@ PUT /rag/documents/policies/{documentId}/versions/{version}/file
 ```
 
 **에러 응답**
+
 - `404 Not Found`: 버전을 찾을 수 없음
 
 ---
@@ -872,6 +939,7 @@ PUT /rag/documents/policies/{documentId}/versions/{version}/file
 AI 서버가 사규 문서의 임베딩 처리 상태를 업데이트합니다.
 
 **엔드포인트**
+
 ```
 PATCH /internal/rag/documents/{ragDocumentPk}/status
 ```
@@ -880,24 +948,18 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 
 **Path Parameters**
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `ragDocumentPk` | UUID | ✅ | RAG 문서의 Primary Key (UUID) |
-
-**Query Parameters**
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|---------|------|------|------|
-| `version` | integer | ❌ | 문서 버전 (검증용) |
+| 파라미터        | 타입 | 필수 | 설명                          |
+| --------------- | ---- | ---- | ----------------------------- |
+| `ragDocumentPk` | UUID | ✅   | RAG 문서의 Primary Key (UUID) |
 
 **Headers**
 
-| 헤더 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `X-Internal-Token` | string | ❌ | 내부 서비스 간 인증 토큰 (현재 검증 미구현) |
-| `Content-Type` | string | ✅ | `application/json` |
+| 헤더           | 타입   | 필수 | 설명               |
+| -------------- | ------ | ---- | ------------------ |
+| `Content-Type` | string | ✅   | `application/json` |
 
 **요청 Body**
+
 ```json
 {
   "status": "COMPLETED",
@@ -908,15 +970,16 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 }
 ```
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `status` | string | ✅ | 처리 상태 (PROCESSING, COMPLETED, FAILED) |
-| `processedAt` | string | ❌ | 처리 완료 시각 (ISO-8601) |
-| `failReason` | string | ❌ | 실패 사유 (status가 FAILED인 경우) |
-| `version` | integer | ❌ | 문서 버전 (검증용) |
-| `documentId` | string | ❌ | 문서 ID (검증용) |
+| 필드          | 타입    | 필수 | 설명                                      |
+| ------------- | ------- | ---- | ----------------------------------------- |
+| `status`      | string  | ✅   | 처리 상태 (PROCESSING, COMPLETED, FAILED) |
+| `processedAt` | string  | ❌   | 처리 완료 시각 (ISO-8601)                 |
+| `failReason`  | string  | ❌   | 실패 사유 (status가 FAILED인 경우)        |
+| `version`     | integer | ❌   | 문서 버전 (검증용)                        |
+| `documentId`  | string  | ❌   | 문서 ID (검증용)                          |
 
 **응답 (200 OK)**
+
 ```json
 {
   "id": "024776fa-009b-4161-ab3b-33c974a3844a",
@@ -929,6 +992,7 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 ```
 
 **에러 응답**
+
 - `400 Bad Request`: 잘못된 요청 (예: 잘못된 status 값)
 - `401 Unauthorized`: 내부 토큰 오류
 - `404 Not Found`: 문서를 찾을 수 없음
@@ -938,6 +1002,7 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 ## 공통 에러 응답 형식
 
 ### 표준 에러 응답
+
 ```json
 {
   "timestamp": "2025-12-29T12:34:56Z",
@@ -953,6 +1018,7 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 ## 상태 코드 참조
 
 ### RAG 문서 처리 상태
+
 - `QUEUED`: 대기 중
 - `PROCESSING`: 처리 중
 - `COMPLETED`: 처리 완료
@@ -960,6 +1026,7 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 - `REPROCESSING`: 재처리 중
 
 ### 사규 관리 상태
+
 - `ACTIVE`: 활성
 - `DRAFT`: 초안
 - `PENDING`: 대기 중
@@ -974,6 +1041,7 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 2. **내부 API**: 내부 API는 서비스 간 통신용이며, `X-Internal-Token` 헤더를 사용합니다. 현재는 검증 로직이 구현되지 않았습니다.
 
 3. **페이지네이션**: `PageResponse` 형식은 다음과 같습니다:
+
    ```json
    {
      "items": [...],
@@ -986,4 +1054,3 @@ PATCH /internal/rag/documents/{ragDocumentPk}/status
 4. **날짜 형식**: 모든 날짜/시간 필드는 ISO-8601 형식을 사용합니다 (예: `2025-12-29T12:34:56Z`).
 
 5. **UUID 형식**: 모든 UUID는 하이픈 포함 형식을 사용합니다 (예: `024776fa-009b-4161-ab3b-33c974a3844a`).
-

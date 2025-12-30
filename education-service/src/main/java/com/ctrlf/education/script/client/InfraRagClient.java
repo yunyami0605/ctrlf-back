@@ -22,7 +22,7 @@ public class InfraRagClient {
      * @param baseUrl infra-service 베이스 URL
      */
     public InfraRagClient(
-        @Value("${app.infra.base-url:http://localhost:9001}") String baseUrl
+        @Value("${ctrlf.infra.base-url:http://localhost:9003}") String baseUrl
     ) {
         String normalizedUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.baseUrl = normalizedUrl;
@@ -66,6 +66,30 @@ public class InfraRagClient {
     }
 
     /**
+     * S3 Presigned 다운로드 URL 조회.
+     * 
+     * @param fileUrl S3 파일 URL (s3://bucket/key 형식)
+     * @return Presigned 다운로드 URL
+     * @throws org.springframework.web.client.RestClientException 네트워크/서버 오류 시
+     */
+    public String getPresignedDownloadUrl(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            return null;
+        }
+        try {
+            PresignedDownloadResponse response = restClient.post()
+                .uri("/infra/files/presign/download")
+                .body(new PresignedDownloadRequest(fileUrl))
+                .retrieve()
+                .body(PresignedDownloadResponse.class);
+            return response != null ? response.getDownloadUrl() : null;
+        } catch (Exception e) {
+            // presigned URL 생성 실패 시 원본 URL 반환 (fallback)
+            return fileUrl;
+        }
+    }
+
+    /**
      * 문서 원문 텍스트 응답 DTO.
      */
     @Getter
@@ -88,5 +112,25 @@ public class InfraRagClient {
         private String domain;
         private String sourceUrl; // fileUrl
         private String status;
+    }
+
+    /**
+     * Presigned 다운로드 URL 요청 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PresignedDownloadRequest {
+        private String fileUrl;
+    }
+
+    /**
+     * Presigned 다운로드 URL 응답 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PresignedDownloadResponse {
+        private String downloadUrl;
     }
 }

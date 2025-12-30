@@ -44,7 +44,7 @@ public class VideoGenerationJob {
     @Column(name = "template_option", columnDefinition = "json")
     private String templateOption;
 
-    /** 상태(예: PENDING/RUNNING/SUCCEEDED/FAILED 등) */
+    /** 상태(예: PENDING/PROCESSING/SUCCEEDED/FAILED 등) */
     @Column(name = "status")
     private String status;
 

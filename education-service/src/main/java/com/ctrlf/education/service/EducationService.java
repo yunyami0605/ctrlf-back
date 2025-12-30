@@ -18,6 +18,7 @@ import com.ctrlf.education.video.entity.EducationVideo;
 import com.ctrlf.education.video.entity.EducationVideoProgress;
 import com.ctrlf.education.video.repository.EducationVideoProgressRepository;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
+import com.ctrlf.education.script.client.InfraRagClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -60,6 +61,7 @@ public class EducationService {
     private final EducationVideoProgressRepository educationVideoProgressRepository;
     private final EducationProgressRepository educationProgressRepository;
     private final ObjectMapper objectMapper;
+    private final InfraRagClient infraRagClient;
 
     @Value("${ctrlf.infra.base-url:http://localhost:9003}")
     private String infraBaseUrl;
@@ -181,10 +183,13 @@ public class EducationService {
                 }
                 
                 sumPct += pctV != null ? pctV : 0;
+                // S3 URL을 presigned URL로 변환
+                String fileUrl = v.getFileUrl();
+                String presignedUrl = infraRagClient.getPresignedDownloadUrl(fileUrl);
                 videoItems.add(new EducationResponses.EducationVideosResponse.VideoItem(
                     v.getId(),
                     v.getTitle(),
-                    v.getFileUrl(),
+                    presignedUrl != null ? presignedUrl : fileUrl,
                     durationSec,
                     v.getVersion() != null ? v.getVersion() : 1,
                     v.getDepartmentScope(),
@@ -351,11 +356,14 @@ public class EducationService {
             } else {
                 watchStatus = "시청전";
             }
+            // S3 URL을 presigned URL로 변환
+            String fileUrl = v.getFileUrl();
+            String presignedUrl = infraRagClient.getPresignedDownloadUrl(fileUrl);
             // 단일 영상 항목 구성
             items.add(new EducationVideosResponse.VideoItem(
                 v.getId(),
                 v.getTitle(),
-                v.getFileUrl(),
+                presignedUrl != null ? presignedUrl : fileUrl,
                 durationSec,
                 v.getVersion() != null ? v.getVersion() : 1,
                 v.getDepartmentScope(),

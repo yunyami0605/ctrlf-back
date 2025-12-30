@@ -193,7 +193,7 @@ public class VideoService {
                 log.info("렌더 생성 요청 성공. jobId={}, videoId={}, scriptId={}, status={}",
                     renderResponse.jobId(), request.videoId(), request.scriptId(), renderResponse.status());
                 
-                // Job 상태를 PROCESSING으로 업데이트 (AI 서버가 RENDERING으로 응답했을 수도 있음)
+                // Job 상태를 PROCESSING으로 업데이트 (AI 서버가 PROCESSING으로 응답)
                 job.setStatus("PROCESSING");
                 jobRepository.save(job);
             } else {
@@ -263,6 +263,14 @@ public class VideoService {
      */
     @Transactional
     public VideoCompleteResponse handleVideoComplete(UUID jobId, VideoCompleteCallback callback) {
+        // body의 jobId와 path variable의 jobId 일치 검증
+        if (callback.jobId() != null && !callback.jobId().equals(jobId)) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Path variable의 jobId와 body의 jobId가 일치하지 않습니다: path=" + jobId + ", body=" + callback.jobId()
+            );
+        }
+
         VideoGenerationJob job = jobRepository.findById(jobId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job을 찾을 수 없습니다: " + jobId));
 

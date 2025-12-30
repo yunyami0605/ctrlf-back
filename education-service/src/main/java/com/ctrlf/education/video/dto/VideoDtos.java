@@ -68,6 +68,9 @@ public final class VideoDtos {
      */
     @Schema(description = "영상 생성 완료 콜백 요청 (AI 서버 → 백엔드)")
     public record VideoCompleteCallback(
+        @Schema(description = "Job ID", example = "550e8400-e29b-41d4-a716-446655440000")
+        UUID jobId,
+
         @Schema(description = "생성된 영상 URL", example = "https://cdn.com/video.mp4")
         String videoUrl,
 
@@ -202,7 +205,7 @@ public final class VideoDtos {
         @Schema(description = "Job ID", example = "550e8400-e29b-41d4-a716-446655440000")
         UUID jobId,
 
-        @Schema(description = "상태", example = "RENDERING")
+        @Schema(description = "상태", example = "PROCESSING")
         String status
     ) {}
 

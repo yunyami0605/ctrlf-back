@@ -446,7 +446,6 @@ public class RagDocumentsController {
     })
     public ResponseEntity<InternalUpdateStatusResponse> updateDocumentStatus(
         @Parameter(description = "RAG 문서 ID (UUID)", required = true) @PathVariable("ragDocumentPk") UUID ragDocumentPk,
-        @Parameter(description = "문서 버전", example = "1", required = false) @RequestParam(value = "version", required = false) Integer version,
         @RequestHeader(value = "X-Internal-Token", required = false) String internalToken,
         @Valid @RequestBody InternalUpdateStatusRequest req
     ) {

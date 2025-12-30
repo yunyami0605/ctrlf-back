@@ -116,7 +116,7 @@ public class RagAiClient {
                 return response;
             } else {
                 log.warn("AI ingest response is null, returning default ack");
-                return new AiResponse(true, "unknown", "QUEUED");
+                return new AiResponse(true, ragDocumentPk.toString(), documentId, version, "PROCESSING", requestId.toString(), traceId);
             }
         } catch (RestClientException e) {
             log.warn("AI ingest call failed: ragDocumentPk={}, documentId={}, error={}", 
@@ -157,25 +157,47 @@ public class RagAiClient {
     }
 
     /**
-     * AI 서버의 Ack 응답 모델.
-     * - accepted: 요청 수락 여부
-     * - jobId: 서버 측 작업 식별자
-     * - status: 초기 상태(예: QUEUED)
+     * AI 서버의 Ingest 응답 모델.
+     * - received: 요청 수신 여부
+     * - ragDocumentPk: RAG 문서 PK
+     * - documentId: 문서 ID
+     * - version: 문서 버전
+     * - status: 초기 상태(예: PROCESSING)
+     * - requestId: 요청 ID
+     * - traceId: 추적 ID
      */
     public static class AiResponse {
-        private boolean accepted;
-        private String jobId;
+        private boolean received;
+        private String ragDocumentPk;
+        private String documentId;
+        private Integer version;
         private String status;
+        private String requestId;
+        private String traceId;
 
         public AiResponse() {}
-        public AiResponse(boolean accepted, String jobId, String status) {
-            this.accepted = accepted;
-            this.jobId = jobId;
+        public AiResponse(boolean received, String ragDocumentPk, String documentId, Integer version, String status, String requestId, String traceId) {
+            this.received = received;
+            this.ragDocumentPk = ragDocumentPk;
+            this.documentId = documentId;
+            this.version = version;
             this.status = status;
+            this.requestId = requestId;
+            this.traceId = traceId;
         }
-        public boolean isAccepted() { return accepted; }
-        public String getJobId() { return jobId; }
+        public boolean isReceived() { return received; }
+        public String getRagDocumentPk() { return ragDocumentPk; }
+        public String getDocumentId() { return documentId; }
+        public Integer getVersion() { return version; }
         public String getStatus() { return status; }
+        public String getRequestId() { return requestId; }
+        public String getTraceId() { return traceId; }
+        
+        // 하위 호환성을 위한 메서드
+        @Deprecated
+        public boolean isAccepted() { return received; }
+        @Deprecated
+        public String getJobId() { return requestId; } // jobId 대신 requestId 반환
     }
 }
 

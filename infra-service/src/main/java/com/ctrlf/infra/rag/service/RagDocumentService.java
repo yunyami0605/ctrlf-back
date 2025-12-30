@@ -148,8 +148,8 @@ public class RagDocumentService {
             documentRepository.save(d);
         }
         // AI 서버 처리 요청
-        boolean accepted = true;
-        String jobId = "unknown";
+        boolean received = true;
+        String requestId = null;
         RagDocumentStatus status = RagDocumentStatus.REPROCESSING;
         if (d.getSourceUrl() != null && !d.getSourceUrl().isBlank()) {
             try {
@@ -160,20 +160,26 @@ public class RagDocumentService {
                     d.getSourceUrl(),
                     d.getDomain()
                 );
-                accepted = aiResp.isAccepted();
-                jobId = aiResp.getJobId();
+                received = aiResp.isReceived();
+                requestId = aiResp.getRequestId();
                 if (aiResp.getStatus() != null) {
                     status = RagDocumentStatus.fromString(aiResp.getStatus());
                     if (status == null) {
                         status = RagDocumentStatus.REPROCESSING;
                     }
                 }
+                log.info("AI 서버 재처리 요청 성공: id={}, documentId={}, version={}, received={}, status={}, requestId={}, traceId={}", 
+                    d.getId(), d.getDocumentId(), d.getVersion(), received, aiResp.getStatus(), 
+                    aiResp.getRequestId(), aiResp.getTraceId());
             } catch (Exception e) {
                 log.warn("AI 서버 재처리 요청 실패: id={}, documentId={}, error={}", 
                     d.getId(), d.getDocumentId(), e.getMessage());
             }
         }
-        return new ReprocessResponse(id.toString(), accepted, status.name(), jobId, Instant.now().toString());
+        // ReprocessResponse는 기존 API 스펙 유지 (accepted, jobId 필드)
+        // received → accepted, requestId → jobId로 매핑
+        return new ReprocessResponse(id.toString(), received, status.name(), 
+            requestId != null ? requestId : "unknown", Instant.now().toString());
     }
 
     /**
@@ -627,8 +633,21 @@ public class RagDocumentService {
                     doc.getSourceUrl(),
                     doc.getDomain()
                 );
-                log.info("AI 서버 처리 요청 성공: id={}, documentId={}, version={}, jobId={}, status={}", 
-                    doc.getId(), doc.getDocumentId(), doc.getVersion(), aiResp.getJobId(), aiResp.getStatus());
+                log.info("AI 서버 처리 요청 성공: id={}, documentId={}, version={}, received={}, status={}, requestId={}, traceId={}", 
+                    doc.getId(), doc.getDocumentId(), doc.getVersion(), aiResp.isReceived(), aiResp.getStatus(), 
+                    aiResp.getRequestId(), aiResp.getTraceId());
+
+                // AI 서버 응답의 status를 enum으로 변환하여 설정
+                if (aiResp.getStatus() != null) {
+                    RagDocumentStatus status = RagDocumentStatus.fromString(aiResp.getStatus());
+                    if (status != null) {
+                        doc.setStatus(status);
+                    } else {
+                        // 변환 실패 시 기본값 유지 (DRAFT)
+                        log.warn("AI 서버 응답의 status를 변환할 수 없음: status={}, documentId={}", 
+                            aiResp.getStatus(), doc.getDocumentId());
+                    }
+                }
             } catch (Exception e) {
                 log.error("AI 서버 처리 요청 실패: id={}, documentId={}, version={}, error={}", 
                     doc.getId(), doc.getDocumentId(), doc.getVersion(), e.getMessage(), e);
@@ -684,9 +703,9 @@ public class RagDocumentService {
                     newVersionDoc.getSourceUrl(),
                     newVersionDoc.getDomain()
                 );
-                log.info("AI 서버 처리 요청 성공: id={}, documentId={}, version={}, jobId={}, status={}", 
+                log.info("AI 서버 처리 요청 성공: id={}, documentId={}, version={}, received={}, status={}, requestId={}, traceId={}", 
                     newVersionDoc.getId(), newVersionDoc.getDocumentId(), newVersionDoc.getVersion(), 
-                    aiResp.getJobId(), aiResp.getStatus());
+                    aiResp.isReceived(), aiResp.getStatus(), aiResp.getRequestId(), aiResp.getTraceId());
             } catch (Exception e) {
                 log.error("AI 서버 처리 요청 실패: id={}, documentId={}, version={}, error={}", 
                     newVersionDoc.getId(), newVersionDoc.getDocumentId(), newVersionDoc.getVersion(), 
@@ -806,6 +825,22 @@ public class RagDocumentService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
                 "Document not found: " + ragDocumentPk));
 
+        // documentId 검증 (AI 서버가 보낸 값과 일치하는지 확인)
+        if (req.getDocumentId() != null && !req.getDocumentId().isBlank()) {
+            if (!req.getDocumentId().equals(doc.getDocumentId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    "DocumentId mismatch: expected " + doc.getDocumentId() + ", got " + req.getDocumentId());
+            }
+        }
+
+        // version 검증 (AI 서버가 보낸 값과 일치하는지 확인)
+        if (req.getVersion() != null) {
+            if (!req.getVersion().equals(doc.getVersion())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    "Version mismatch: expected " + doc.getVersion() + ", got " + req.getVersion());
+            }
+        }
+
         // 상태 검증
         String newStatusStr = req.getStatus();
         RagDocumentStatus newStatus = RagDocumentStatus.fromString(newStatusStr);
@@ -834,10 +869,17 @@ public class RagDocumentService {
             doc.setProcessedAt(Instant.now());
         }
 
+        // failReason 로깅 (엔티티에 필드가 없으므로 로그만 남김)
+        if (req.getFailReason() != null && !req.getFailReason().isBlank()) {
+            log.warn("Document processing failed: id={}, documentId={}, version={}, failReason={}", 
+                doc.getId(), doc.getDocumentId(), doc.getVersion(), req.getFailReason());
+        }
+
         doc = documentRepository.save(doc);
 
-        log.info("Document status updated: id={}, documentId={}, version={}, status={}, processedAt={}", 
-            doc.getId(), doc.getDocumentId(), doc.getVersion(), doc.getStatus(), doc.getProcessedAt());
+        log.info("Document status updated: id={}, documentId={}, version={}, status={}, processedAt={}, failReason={}", 
+            doc.getId(), doc.getDocumentId(), doc.getVersion(), doc.getStatus(), doc.getProcessedAt(), 
+            req.getFailReason() != null ? req.getFailReason() : "N/A");
 
         return new InternalUpdateStatusResponse(
             doc.getId().toString(),
