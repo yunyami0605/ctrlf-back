@@ -165,6 +165,62 @@ for ROLE_NAME in "${REQUIRED_ROLES[@]}"; do
     fi
 done
 
+# roles 클라이언트 스코프 할당 (Default로 추가)
+echo ""
+echo "📋 'roles' 클라이언트 스코프 확인 중..."
+CLIENT_SCOPES_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+    "$KEYCLOAK_URL/admin/realms/$REALM/client-scopes" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -H "Content-Type: application/json")
+
+HTTP_CODE=$(echo "$CLIENT_SCOPES_RESPONSE" | tail -n1)
+CLIENT_SCOPES_BODY=$(echo "$CLIENT_SCOPES_RESPONSE" | sed '$d')
+
+if [ "$HTTP_CODE" = "200" ]; then
+    ROLES_SCOPE_ID=$(echo "$CLIENT_SCOPES_BODY" | jq -r '.[] | select(.name == "roles") | .id')
+    
+    if [ -n "$ROLES_SCOPE_ID" ] && [ "$ROLES_SCOPE_ID" != "null" ]; then
+        # 현재 할당된 Default 클라이언트 스코프 확인
+        DEFAULT_SCOPES_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+            "$KEYCLOAK_URL/admin/realms/$REALM/clients/$CLIENT_UUID/default-client-scopes" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json")
+        
+        DEFAULT_SCOPES_HTTP_CODE=$(echo "$DEFAULT_SCOPES_RESPONSE" | tail -n1)
+        DEFAULT_SCOPES_BODY=$(echo "$DEFAULT_SCOPES_RESPONSE" | sed '$d')
+        
+        if [ "$DEFAULT_SCOPES_HTTP_CODE" = "200" ]; then
+            ROLES_SCOPE_ASSIGNED=$(echo "$DEFAULT_SCOPES_BODY" | jq -r '.[] | select(.name == "roles") | .name')
+            
+            if [ -n "$ROLES_SCOPE_ASSIGNED" ]; then
+                echo "   ✅ 'roles' 클라이언트 스코프가 이미 Default로 할당되어 있습니다."
+            else
+                echo "   ➕ 'roles' 클라이언트 스코프를 Default로 할당 중..."
+                SCOPE_RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+                    "$KEYCLOAK_URL/admin/realms/$REALM/clients/$CLIENT_UUID/default-client-scopes/$ROLES_SCOPE_ID" \
+                    -H "Authorization: Bearer $ADMIN_TOKEN" \
+                    -H "Content-Type: application/json")
+                
+                SCOPE_HTTP_CODE=$(echo "$SCOPE_RESPONSE" | tail -n1)
+                
+                if [ "$SCOPE_HTTP_CODE" = "204" ] || [ "$SCOPE_HTTP_CODE" = "200" ]; then
+                    echo "   ✅ 'roles' 클라이언트 스코프 할당 완료"
+                else
+                    echo "   ⚠️  'roles' 클라이언트 스코프 할당 실패 (HTTP $SCOPE_HTTP_CODE)"
+                fi
+            fi
+        else
+            echo "   ⚠️  Default 클라이언트 스코프 확인 실패 (HTTP $DEFAULT_SCOPES_HTTP_CODE)"
+        fi
+    else
+        echo "   ⚠️  'roles' 클라이언트 스코프를 찾을 수 없습니다."
+        echo "      (일반적으로 Keycloak에 기본 제공되므로, 이 메시지는 무시해도 됩니다)"
+    fi
+else
+    echo "   ⚠️  클라이언트 스코프 확인 중 오류 발생 (HTTP $HTTP_CODE)"
+    echo "      (수동으로 Keycloak Admin Console에서 확인해주세요)"
+fi
+
 echo ""
 if [ $ASSIGNED_COUNT -gt 0 ] || [ ${#REQUIRED_ROLES[@]} -eq 0 ]; then
     echo "🎉 설정 완료! $ASSIGNED_COUNT개의 역할이 할당되었습니다."

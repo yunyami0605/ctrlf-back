@@ -235,6 +235,55 @@ foreach ($roleName in $RequiredRoles) {
     }
 }
 
+# roles 클라이언트 스코프 할당 (Default로 추가)
+Write-Host ""
+Write-Host "📋 'roles' 클라이언트 스코프 확인 중..." -ForegroundColor Yellow
+try {
+    # 클라이언트 스코프 목록 조회
+    $clientScopes = Invoke-RestMethod -Uri "$KeycloakUrl/admin/realms/$Realm/client-scopes" `
+        -Method Get -Headers $headers
+    
+    # roles 클라이언트 스코프 찾기
+    $rolesScope = $clientScopes | Where-Object { $_.name -eq "roles" }
+    
+    if ($rolesScope) {
+        # 현재 할당된 Default 클라이언트 스코프 조회
+        $defaultScopes = Invoke-RestMethod -Uri "$KeycloakUrl/admin/realms/$Realm/clients/$clientUuid/default-client-scopes" `
+            -Method Get -Headers $headers
+        
+        $rolesScopeAssigned = $defaultScopes | Where-Object { $_.name -eq "roles" }
+        
+        if ($rolesScopeAssigned) {
+            Write-Host "   ✅ 'roles' 클라이언트 스코프가 이미 Default로 할당되어 있습니다." -ForegroundColor Green
+        } else {
+            Write-Host "   ➕ 'roles' 클라이언트 스코프를 Default로 할당 중..." -ForegroundColor Cyan
+            try {
+                $response = Invoke-WebRequest -Uri "$KeycloakUrl/admin/realms/$Realm/clients/$clientUuid/default-client-scopes/$($rolesScope.id)" `
+                    -Method Put -Headers $headers -ErrorAction Stop
+                
+                if ($response.StatusCode -eq 204 -or $response.StatusCode -eq 200) {
+                    Write-Host "   ✅ 'roles' 클라이언트 스코프 할당 완료" -ForegroundColor Green
+                } else {
+                    Write-Host "   ⚠️  'roles' 클라이언트 스코프 할당 실패 (HTTP $($response.StatusCode))" -ForegroundColor Yellow
+                }
+            } catch {
+                $statusCode = $_.Exception.Response.StatusCode.value__
+                if ($statusCode -eq 204 -or $statusCode -eq 200) {
+                    Write-Host "   ✅ 'roles' 클라이언트 스코프 할당 완료" -ForegroundColor Green
+                } else {
+                    Write-Host "   ⚠️  'roles' 클라이언트 스코프 할당 실패 (HTTP $statusCode): $_" -ForegroundColor Yellow
+                }
+            }
+        }
+    } else {
+        Write-Host "   ⚠️  'roles' 클라이언트 스코프를 찾을 수 없습니다." -ForegroundColor Yellow
+        Write-Host "      (일반적으로 Keycloak에 기본 제공되므로, 이 메시지는 무시해도 됩니다)" -ForegroundColor Gray
+    }
+} catch {
+    Write-Host "   ⚠️  클라이언트 스코프 확인 중 오류 발생: $_" -ForegroundColor Yellow
+    Write-Host "      (수동으로 Keycloak Admin Console에서 확인해주세요)" -ForegroundColor Gray
+}
+
 Write-Host ""
 Write-Host "🎉 설정 완료! $assignedCount 개의 역할이 할당되었습니다." -ForegroundColor Green
 Write-Host ""
