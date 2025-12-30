@@ -1,5 +1,0 @@
-spring:
-  datasource:
-    url: jdbc:postgresql://ctrl.c7yyi6w0ch43.ap-northeast-2.rds.amazonaws.com:5432/db
-    username: postgres
-    password: postgres

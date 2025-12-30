@@ -96,7 +96,6 @@
     ├─ chat-service/
     ├─ education-service/
     ├─ infra-service/
-    ├─ quiz-service/
     ├─ libs/
     │ ├─ common-dto/
     │ ├─ common-security/

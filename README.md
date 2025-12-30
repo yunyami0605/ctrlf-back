@@ -9,7 +9,6 @@
 | chat-service      | 9005 | 챗봇 서비스    |
 | education-service | 9002 | 교육 서비스    |
 | infra-service     | 9003 | 인프라 서비스  |
-| quiz-service      | 9004 | 퀴즈 서비스    |
 | api-gateway       | 8080 | API 게이트웨이 |
 | Postgres          | 5432 | 데이터베이스   |
 | Keycloak          | 8090 | 인증 서버      |
@@ -52,7 +51,6 @@ AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=dev,local-seed,keycloak-setup .
 AWS_PROFILE=sk_4th_team04 ./gradlew :chat-service:bootRun
 AWS_PROFILE=sk_4th_team04 ./gradlew :education-service:bootRun
 AWS_PROFILE=sk_4th_team04 ./gradlew :infra-service:bootRun
-AWS_PROFILE=sk_4th_team04 ./gradlew :quiz-service:bootRun
 AWS_PROFILE=sk_4th_team04 ./gradlew :api-gateway:bootRun
 ```
 
@@ -71,7 +69,6 @@ AWS_PROFILE=sk_4th_team04 ./gradlew :infra-service:bootRun --args='--spring.prof
   - chat: `chat` 스키마
   - education: `education` 스키마
   - infra: `infra` 스키마
-  - quiz: `quiz` 스키마
 
 ### 4. API 문서(Swagger/OpenAPI)
 
@@ -80,7 +77,6 @@ AWS_PROFILE=sk_4th_team04 ./gradlew :infra-service:bootRun --args='--spring.prof
 | Chat      | http://localhost:9005/swagger-ui.html | http://localhost:9005/v3/api-docs |
 | Education | http://localhost:9002/swagger-ui.html | http://localhost:9002/v3/api-docs |
 | Infra     | http://localhost:9003/swagger-ui.html | http://localhost:9003/v3/api-docs |
-| Quiz      | http://localhost:9004/swagger-ui.html | http://localhost:9004/v3/api-docs |
 
 - springdoc 2.x 사용 중이며, 일부 환경에서는 `/swagger-ui/index.html` 경로를 사용하기도 합니다.
 - 공통 OpenAPI 설정(`libs/common-utils`)에서 보안 스키마(JWT Bearer) 사용을 켜고 끌 수 있습니다(`app.api.security.enabled`).
@@ -309,7 +305,6 @@ docker exec -it platform-postgres psql -U postgres -d db
 \dt education.*               -- education 스키마 테이블
 \dt infra.*                   -- infra 스키마 테이블
 \dt chat.*                    -- chat 스키마 테이블
-\dt quiz.*                    -- quiz 스키마 테이블
 
 SET search_path=education;    -- 기본 스키마 변경
 \dt                           -- 현재 스키마의 테이블 목록
