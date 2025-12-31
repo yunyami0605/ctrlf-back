@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "Chat-Admin", description = "챗봇 관리자 대시보드 통계 API (ADMIN)")
 @RestController
-@RequestMapping("/admin/dashboard/chat")
+@RequestMapping("/admin/dashboard")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
 public class AdminChatDashboardController {

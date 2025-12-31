@@ -83,7 +83,7 @@ public class FaqAiClient {
 
             AiFaqBatchResponse response = restClient.post()
                 .uri("/ai/faq/generate/batch")
-                .body(new AiFaqBatchRequest(requests))
+                .body(new AiFaqBatchRequest(requests, null))
                 .retrieve()
                 .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, res) -> {
                     String errorBody = "";

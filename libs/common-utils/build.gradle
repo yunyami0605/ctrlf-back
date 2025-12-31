@@ -2,9 +2,15 @@ plugins {
     id 'java-library'
 }
 
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-autoconfigure:3.3.3'
     implementation 'org.springframework:spring-context:6.1.12'
+    implementation 'org.springframework:spring-web:6.1.12'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server:3.3.3'
     implementation 'io.swagger.core.v3:swagger-models:2.2.21'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'

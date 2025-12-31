@@ -1,24 +1,26 @@
 package com.ctrlf.chat.faq.service;
 
 import com.ctrlf.chat.faq.dto.request.AutoFaqGenerateRequest;
-import com.ctrlf.chat.faq.dto.request.FaqCreateRequest;
 import com.ctrlf.chat.faq.dto.request.FaqDraftGenerateBatchRequest;
 import com.ctrlf.chat.faq.dto.request.FaqDraftGenerateRequest;
+import com.ctrlf.chat.faq.dto.request.FaqUpdateRequest;
 import com.ctrlf.chat.faq.dto.response.AutoFaqGenerateResponse;
+import com.ctrlf.chat.faq.exception.FaqNotFoundException;
 import com.ctrlf.chat.faq.dto.response.FaqDraftGenerateBatchResponse;
 import com.ctrlf.chat.faq.dto.response.FaqDraftGenerateResponse;
 import com.ctrlf.chat.faq.dto.response.FaqResponse;
 import com.ctrlf.chat.faq.entity.*;
-import com.ctrlf.chat.faq.exception.FaqNotFoundException;
 import com.ctrlf.chat.faq.repository.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -31,24 +33,16 @@ public class FaqServiceImpl implements FaqService {
     private final FaqAiClient faqAiClient;
 
     // =========================
-    // 기존 FAQ CRUD
+    // FAQ 조회 및 관리
     // =========================
 
     @Override
-    public UUID create(FaqCreateRequest request) {
-        Instant now = Instant.now();
-        Faq faq = new Faq();
-        faq.setQuestion(request.getQuestion());
-        faq.setAnswer(request.getAnswer());
-        faq.setDomain(request.getDomain());
-        faq.setPriority(request.getPriority());
-        faq.setIsActive(true);
-        faq.setNeedsRecategorization(false); // 기본값 설정
-        faq.setPublishedAt(now); // 기본값 설정
-        faq.setCreatedAt(now);
-        faq.setUpdatedAt(now);
-
-        return faqRepository.save(faq).getId();
+    @Transactional(readOnly = true)
+    public List<FaqResponse> getAll() {
+        return faqRepository.findByIsActiveTrueOrderByPriorityAsc()
+            .stream()
+            .map(FaqResponse::from)
+            .toList();
     }
 
     @Override
@@ -72,15 +66,6 @@ public class FaqServiceImpl implements FaqService {
 
         faq.setIsActive(false);
         faq.setUpdatedAt(Instant.now());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<FaqResponse> getAll() {
-        return faqRepository.findByIsActiveTrueOrderByPriorityAsc()
-            .stream()
-            .map(FaqResponse::from)
-            .toList();
     }
 
     // =========================
