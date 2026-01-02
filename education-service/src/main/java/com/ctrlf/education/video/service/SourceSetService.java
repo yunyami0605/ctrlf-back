@@ -353,11 +353,13 @@ public class SourceSetService {
                     ssd.getDocumentId().toString());
                 
                 if (docInfo != null) {
+                    // S3 URL을 presigned URL로 변환 (FastAPI/RAGFlow가 접근 가능하도록)
+                    String sourceUrl = infraRagClient.getPresignedDownloadUrl(docInfo.getSourceUrl());
                     documentItems.add(new InternalSourceSetDocumentsResponse.InternalDocumentItem(
                         docInfo.getId(),
                         docInfo.getTitle(),
                         docInfo.getDomain(),
-                        docInfo.getSourceUrl(),
+                        sourceUrl,
                         docInfo.getStatus() != null ? docInfo.getStatus() : "QUEUED"
                     ));
                 }
