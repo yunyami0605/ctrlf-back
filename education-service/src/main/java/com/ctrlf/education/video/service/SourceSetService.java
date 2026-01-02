@@ -467,15 +467,49 @@ public class SourceSetService {
             });
         }
 
-        // 성공 시 스크립트 저장
+        // 성공 시 스크립트 저장 (전체 또는 패치)
         UUID scriptId = null;
+
+        // 모드 1: 씬별 패치 전송 (SCRIPT_GENERATING 상태)
+        if (callback.scriptPatch() != null) {
+            try {
+                UUID patchScriptId = scriptService.saveScriptPatchFromSourceSet(sourceSetId, callback.scriptPatch());
+                log.info("스크립트 패치 저장 성공: sourceSetId={}, scriptId={}, progress={}/{}",
+                    sourceSetId, patchScriptId,
+                    callback.scriptPatch().currentScene(),
+                    callback.scriptPatch().totalScenes());
+
+                // 패치 모드에서는 EducationVideo에 scriptId 연결 (첫 패치에서만)
+                if (sourceSet.getVideoId() != null) {
+                    final UUID finalScriptId = patchScriptId;
+                    videoRepository.findById(sourceSet.getVideoId()).ifPresent(video -> {
+                        if (video.getScriptId() == null) {
+                            video.setScriptId(finalScriptId);
+                            video.setStatus("SCRIPT_GENERATING");
+                            videoRepository.save(video);
+                            log.info("영상에 스크립트 연결 (패치 모드): videoId={}, scriptId={}",
+                                video.getId(), finalScriptId);
+                        }
+                    });
+                }
+
+                return new SourceSetCompleteResponse(true, patchScriptId);
+            } catch (Exception e) {
+                log.error("스크립트 패치 저장 실패: sourceSetId={}, error={}",
+                    sourceSetId, e.getMessage(), e);
+                // 패치 저장 실패는 경고로 처리 (다음 패치에서 재시도 가능)
+                return new SourceSetCompleteResponse(false, null);
+            }
+        }
+
+        // 모드 2: 전체 스크립트 전송 (기존 로직)
         if ("COMPLETED".equals(callback.status()) && callback.script() != null) {
             try {
                 scriptId = saveScriptFromCallback(sourceSet, callback.script());
-                log.info("소스셋 완료 콜백 처리 성공: sourceSetId={}, scriptId={}, status={}", 
+                log.info("소스셋 완료 콜백 처리 성공: sourceSetId={}, scriptId={}, status={}",
                     sourceSetId, scriptId, callback.sourceSetStatus());
             } catch (Exception e) {
-                log.error("스크립트 저장 실패: sourceSetId={}, error={}", 
+                log.error("스크립트 저장 실패: sourceSetId={}, error={}",
                     sourceSetId, e.getMessage(), e);
                 // 스크립트 저장 실패 시 에러 정보 저장
                 sourceSet.setStatus("FAILED");
@@ -488,7 +522,8 @@ public class SourceSetService {
                     String.format("스크립트 저장 실패: sourceSetId=%s, error=%s", sourceSetId, e.getMessage())
                 );
             }
-        } else {
+        } else if (callback.scriptPatch() == null) {
+            // scriptPatch도 없고 script도 없는 경우에만 실패 처리
             log.error(
                 "=== 소스셋 완료 콜백 처리 (실패): sourceSetId={}, status={}, sourceSetStatus={}, errorCode={}, errorMessage={}, documents={} ===",
                 sourceSetId, callback.status(), callback.sourceSetStatus(), 
@@ -655,7 +690,8 @@ public class SourceSetService {
             "COMPLETED", // status
             "SCRIPT_READY", // sourceSetStatus
             documentResults, // documents
-            script, // script
+            script, // script (전체 스크립트)
+            null, // scriptPatch (패치 모드 아님)
             null, // errorCode
             null, // errorMessage
             UUID.randomUUID(), // requestId

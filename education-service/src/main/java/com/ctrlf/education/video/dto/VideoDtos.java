@@ -405,15 +405,36 @@ public final class VideoDtos {
     }
 
     /**
+     * 스크립트 패치 (씬 단위 업서트).
+     * 씬이 생성될 때마다 백엔드에 전송하여 부분 저장.
+     */
+    @Schema(description = "스크립트 패치 (씬 단위 업서트)")
+    public record ScriptPatch(
+        @Schema(description = "패치 타입 (SCENE_UPSERT)") String type,
+        @Schema(description = "스크립트 ID") String scriptId,
+        @Schema(description = "챕터 인덱스 (0-based)") Integer chapterIndex,
+        @Schema(description = "챕터 제목") String chapterTitle,
+        @Schema(description = "씬 인덱스 (0-based)") Integer sceneIndex,
+        @Schema(description = "씬 데이터") SourceSetCompleteCallback.SourceSetScript.SourceSetScene scene,
+        @Schema(description = "전체 씬 수") Integer totalScenes,
+        @Schema(description = "현재 씬 번호 (1-based)") Integer currentScene
+    ) {}
+
+    /**
      * 소스셋 완료 콜백 요청 (FastAPI → Spring).
+     *
+     * 두 가지 모드 지원:
+     * 1. 전체 스크립트 전송: script 필드 사용, sourceSetStatus=SCRIPT_READY
+     * 2. 씬별 패치 전송: scriptPatch 필드 사용, sourceSetStatus=SCRIPT_GENERATING
      */
     @Schema(description = "소스셋 완료 콜백 요청 (FastAPI → Spring)")
     public record SourceSetCompleteCallback(
         @Schema(description = "영상 ID", required = true) @NotNull UUID videoId,
         @Schema(description = "결과 상태 (COMPLETED | FAILED)", required = true) @NotBlank String status,
-        @Schema(description = "DB source_set 상태 (SCRIPT_READY | FAILED)", required = true) @NotBlank String sourceSetStatus,
+        @Schema(description = "DB source_set 상태 (SCRIPT_GENERATING | SCRIPT_READY | FAILED)", required = true) @NotBlank String sourceSetStatus,
         @Schema(description = "문서별 결과", required = true) @NotNull java.util.List<DocumentResult> documents,
-        @Schema(description = "생성된 스크립트 (성공 시)") SourceSetScript script,
+        @Schema(description = "생성된 스크립트 (전체 전송 시)") SourceSetScript script,
+        @Schema(description = "스크립트 패치 (씬별 전송 시)") ScriptPatch scriptPatch,
         @Schema(description = "실패 코드") String errorCode,
         @Schema(description = "실패 메시지") String errorMessage,
         @Schema(description = "멱등 키") UUID requestId,

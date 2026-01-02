@@ -523,9 +523,132 @@ public class ScriptService {
       log.debug("스크립트 최종 확인 성공: scriptId={}, title={}", finalCheck.getId(), finalCheck.getTitle());
     }
     
-    log.info("SourceSet 스크립트 저장 완료: sourceSetId={}, scriptId={}, educationId={}", 
+    log.info("SourceSet 스크립트 저장 완료: sourceSetId={}, scriptId={}, educationId={}",
         sourceSetId, finalScriptId, educationId);
-    
+
     return finalScriptId;
+  }
+
+  /**
+   * SourceSet 완료 콜백에서 받은 스크립트 패치를 병합 저장 (씬 단위 업서트).
+   *
+   * @param sourceSetId 소스셋 ID
+   * @param patch 스크립트 패치 데이터
+   * @return 저장/업데이트된 스크립트 ID
+   */
+  @Transactional
+  public UUID saveScriptPatchFromSourceSet(
+      UUID sourceSetId,
+      com.ctrlf.education.video.dto.VideoDtos.ScriptPatch patch
+  ) {
+    // 1. scriptId 파싱 (제공된 경우)
+    UUID scriptId = null;
+    if (patch.scriptId() != null && !patch.scriptId().isBlank()) {
+      try {
+        scriptId = UUID.fromString(patch.scriptId());
+      } catch (IllegalArgumentException e) {
+        log.warn("잘못된 scriptId 형식, 새 UUID 생성: scriptId={}", patch.scriptId());
+      }
+    }
+
+    // 2. 기존 스크립트 조회 또는 새로 생성
+    EducationScript script;
+    if (scriptId != null) {
+      script = scriptRepository.findById(scriptId).orElse(null);
+    } else {
+      script = null;
+    }
+
+    if (script == null) {
+      // 새 스크립트 생성
+      scriptId = (scriptId != null) ? scriptId : UUID.randomUUID();
+      script = new EducationScript();
+      script.setId(scriptId);
+      script.setSourceSetId(sourceSetId);
+      script.setStatus("GENERATING"); // 생성 중 상태
+      script.setVersion(1);
+      script.setTitle("스크립트 생성 중...");
+      script = scriptRepository.save(script);
+      log.info("새 스크립트 생성: scriptId={}, sourceSetId={}", scriptId, sourceSetId);
+    }
+
+    // 3. 챕터 조회 또는 생성
+    Integer chapterIndex = patch.chapterIndex();
+    EducationScriptChapter chapter = chapterRepository
+        .findByScriptIdAndChapterIndex(script.getId(), chapterIndex)
+        .orElse(null);
+
+    if (chapter == null) {
+      // 새 챕터 생성
+      chapter = new EducationScriptChapter();
+      chapter.setScriptId(script.getId());
+      chapter.setChapterIndex(chapterIndex);
+      chapter.setTitle(patch.chapterTitle() != null ? patch.chapterTitle() : "챕터 " + (chapterIndex + 1));
+      chapter.setDurationSec(0);
+      chapter = chapterRepository.save(chapter);
+      log.debug("새 챕터 생성: chapterId={}, chapterIndex={}", chapter.getId(), chapterIndex);
+    }
+
+    // 4. 씬 업서트
+    Integer sceneIndex = patch.sceneIndex();
+    var sceneData = patch.scene();
+
+    EducationScriptScene existingScene = sceneRepository
+        .findByChapterIdAndSceneIndex(chapter.getId(), sceneIndex)
+        .orElse(null);
+
+    EducationScriptScene scene;
+    if (existingScene != null) {
+      // 기존 씬 업데이트
+      scene = existingScene;
+      log.debug("기존 씬 업데이트: sceneId={}, sceneIndex={}", scene.getId(), sceneIndex);
+    } else {
+      // 새 씬 생성
+      scene = new EducationScriptScene();
+      scene.setScriptId(script.getId());
+      scene.setChapterId(chapter.getId());
+      scene.setSceneIndex(sceneIndex);
+      log.debug("새 씬 생성: chapterId={}, sceneIndex={}", chapter.getId(), sceneIndex);
+    }
+
+    // 씬 데이터 설정
+    scene.setPurpose(sceneData.purpose());
+    scene.setNarration(sceneData.narration());
+    scene.setCaption(sceneData.caption());
+    scene.setVisual(sceneData.visual());
+    scene.setDurationSec(sceneData.durationSec());
+    scene.setConfidenceScore(sceneData.confidenceScore());
+
+    // sourceRefs 저장
+    if (sceneData.sourceRefs() != null && !sceneData.sourceRefs().isEmpty()) {
+      try {
+        String sourceRefsJson = objectMapper.writeValueAsString(sceneData.sourceRefs());
+        scene.setSourceRefs(sourceRefsJson);
+      } catch (JsonProcessingException e) {
+        log.warn("sourceRefs JSON 직렬화 실패: error={}", e.getMessage());
+      }
+    }
+
+    sceneRepository.save(scene);
+
+    // 5. 챕터 duration 업데이트
+    Integer newChapterDuration = sceneRepository.sumDurationByChapterId(chapter.getId());
+    if (newChapterDuration != null) {
+      chapter.setDurationSec(newChapterDuration);
+      chapterRepository.save(chapter);
+    }
+
+    // 6. 스크립트 총 duration 업데이트
+    Integer totalDuration = chapterRepository.sumDurationByScriptId(script.getId());
+    if (totalDuration != null) {
+      script.setTotalDurationSec(totalDuration);
+      scriptRepository.save(script);
+    }
+
+    log.info("스크립트 패치 저장 완료: scriptId={}, chapter={}, scene={}, progress={}/{}",
+        script.getId(), chapterIndex, sceneIndex,
+        patch.currentScene(), patch.totalScenes());
+
+    return script.getId();
   }
 }
