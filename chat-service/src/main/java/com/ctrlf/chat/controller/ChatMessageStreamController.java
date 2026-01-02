@@ -35,7 +35,20 @@ public class ChatMessageStreamController {
         produces = "text/event-stream"
     )
     public SseEmitter stream(@PathVariable UUID messageId) {
-        // ✅ emitter 생성 및 생명주기는 Service가 담당
-        return chatStreamService.stream(messageId);
+        try {
+            // ✅ emitter 생성 및 생명주기는 Service가 담당
+            return chatStreamService.stream(messageId);
+        } catch (Exception e) {
+            // 컨트롤러 레벨 예외 발생 시 (예: messageId 파싱 실패 등)
+            // SSE 에러 이벤트로 처리하기 위해 emitter를 생성하여 에러 전송
+            SseEmitter errorEmitter = new SseEmitter(5_000L); // 짧은 타임아웃
+            try {
+                errorEmitter.send(SseEmitter.event()
+                    .name("error")
+                    .data("Failed to start stream: " + e.getMessage()));
+            } catch (Exception ignored) {}
+            errorEmitter.completeWithError(e);
+            return errorEmitter;
+        }
     }
 }
