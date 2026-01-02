@@ -204,44 +204,6 @@ public class RagDocumentsController {
     // 내부 API (FastAPI → Spring)
     // ========================
 
-    @PostMapping("/{documentId}/chunks:bulk")
-    @Operation(
-        summary = "문서 청크 Bulk Upsert (내부 API)",
-        description = "FastAPI가 문서 청크를 bulk upsert합니다. (임베딩 벡터는 Milvus에 저장, DB는 chunk_text만 저장)"
-    )
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "저장 성공",
-            content = @Content(schema = @Schema(implementation = ChunksBulkUpsertResponse.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-        @ApiResponse(responseCode = "401", description = "내부 토큰 오류"),
-        @ApiResponse(responseCode = "404", description = "문서를 찾을 수 없음")
-    })
-    public ResponseEntity<ChunksBulkUpsertResponse> bulkUpsertChunks(
-        @Parameter(description = "문서 ID", required = true) @PathVariable("documentId") String documentId,
-        @Valid @RequestBody ChunksBulkUpsertRequest req
-    ) {
-        return ResponseEntity.ok(ragDocumentService.bulkUpsertChunks(documentId, req));
-    }
-
-    @PostMapping("/{documentId}/fail-chunks:bulk")
-    @Operation(
-        summary = "임베딩 실패 로그 Bulk Upsert (내부 API)",
-        description = "FastAPI가 임베딩 실패한 청크 로그를 bulk upsert합니다."
-    )
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "저장 성공",
-            content = @Content(schema = @Schema(implementation = FailChunksBulkUpsertResponse.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-        @ApiResponse(responseCode = "401", description = "내부 토큰 오류"),
-        @ApiResponse(responseCode = "404", description = "문서를 찾을 수 없음")
-    })
-    public ResponseEntity<FailChunksBulkUpsertResponse> bulkUpsertFailChunks(
-        @Parameter(description = "문서 ID", required = true) @PathVariable("documentId") String documentId,
-        @Valid @RequestBody FailChunksBulkUpsertRequest req
-    ) {
-        return ResponseEntity.ok(ragDocumentService.bulkUpsertFailChunks(documentId, req));
-    }
-
     // ========== Policy Management APIs ==========
 
     @GetMapping("/policies")

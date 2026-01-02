@@ -1,0 +1,20 @@
+server:
+  port: 8085
+
+spring:
+  cloud:
+    gateway:
+      # 개발용 로깅 활성화
+      logging:
+        level:
+          org.springframework.cloud.gateway: DEBUG
+          org.springframework.web: DEBUG
+
+logging:
+  level:
+    root: INFO
+    com.ctrlf.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+

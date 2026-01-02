@@ -12,32 +12,190 @@ spring:
           issuer-uri: http://localhost:8090/realms/ctrlf
 
   cloud:
+    # Spring Boot 3.2.13과 Spring Cloud 2023.0.4 호환
+    compatibility-verifier:
+      enabled: false
     gateway:
+      # ForwardedHeadersFilter 비활성화 (로컬 개발 환경에서는 불필요)
+      forwarded:
+        enabled: false
       routes:
-        - id: chat-route
+        # ============================================================
+        # Public API Routes (인증 필요)
+        # ============================================================
+        # 주의: 더 구체적인 경로를 먼저 정의해야 함 (Spring Cloud Gateway는 순서대로 매칭)
+
+        # ============================================================
+        # Chat Service (9005)
+        # ============================================================
+        # /admin/dashboard/chat는 가장 구체적인 경로이므로 먼저 정의
+        - id: chat-admin-dashboard-route
+          uri: http://localhost:9005
+          predicates:
+            - Path=/admin/dashboard/chat/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /api/chat 경로
+        - id: chat-api-route
           uri: http://localhost:9005
           predicates:
             - Path=/api/chat/**
           filters:
-            - StripPrefix=2
-        - id: education-route
+            - StripPrefix=0 # 경로 그대로 전달
+        # /chat 경로
+        - id: chat-route
+          uri: http://localhost:9005
+          predicates:
+            - Path=/chat/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # ============================================================
+        # Education Service (9002)
+        # ============================================================
+        # /admin/dashboard/education는 가장 구체적인 경로이므로 먼저 정의
+        - id: education-admin-dashboard-route
           uri: http://localhost:9002
           predicates:
-            - Path=/api/edu/**
+            - Path=/admin/dashboard/education/**
           filters:
-            - StripPrefix=2
-        - id: infra-route
+            - StripPrefix=0 # 경로 그대로 전달
+        # /admin/edus 경로
+        - id: education-admin-edus-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/admin/edus/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /admin/edu 경로
+        - id: education-admin-edu-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/admin/edu/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /edus 경로
+        - id: education-edus-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/edus/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /edu 경로
+        - id: education-edu-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/edu/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /video 경로
+        - id: education-video-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/video/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # ============================================================
+        # Infra Service (9003)
+        # ============================================================
+        # /internal/rag/documents는 가장 구체적인 경로이므로 먼저 정의
+        - id: infra-internal-rag-documents-route
           uri: http://localhost:9003
           predicates:
-            - Path=/api/infra/**
+            - Path=/internal/rag/documents/**
           filters:
-            - StripPrefix=2
+            - StripPrefix=0 # 경로 그대로 전달
+        # /internal/rag 경로
+        - id: infra-internal-rag-route
+          uri: http://localhost:9003
+          predicates:
+            - Path=/internal/rag/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /rag/documents 경로
+        - id: infra-rag-documents-route
+          uri: http://localhost:9003
+          predicates:
+            - Path=/rag/documents/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /infra/files/presign 경로
+        - id: infra-files-presign-route
+          uri: http://localhost:9003
+          predicates:
+            - Path=/infra/files/presign/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # /admin/users 경로
+        - id: infra-admin-users-route
+          uri: http://localhost:9003
+          predicates:
+            - Path=/admin/users/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+        # 나머지 /admin/**는 infra-service로 라우팅 (가장 마지막에 정의)
+        - id: infra-admin-route
+          uri: http://localhost:9003
+          predicates:
+            - Path=/admin/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # ============================================================
+        # Quiz Service (9004)
+        # ============================================================
         - id: quiz-route
           uri: http://localhost:9004
           predicates:
             - Path=/api/quiz/**
           filters:
-            - StripPrefix=2
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # ============================================================
+        # Keycloak Service (8090)
+        # ============================================================
+        - id: keycloak-auth-route
+          uri: http://localhost:8090
+          predicates:
+            - Path=/auth/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # ============================================================
+        # Internal API Routes (내부 서비스 간 통신, 인증 우회)
+        # ============================================================
+        # Source set 관련 (education-service)
+        - id: internal-source-sets-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/internal/source-sets/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # Source set 콜백 (education-service)
+        - id: internal-callbacks-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/internal/callbacks/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # 스크립트 관련 (education-service)
+        - id: internal-scripts-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/internal/scripts/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
+        # AI 서버로의 요청 (백엔드 → AI 서버)
+        - id: internal-ai-route
+          uri: http://localhost:8000
+          predicates:
+            - Path=/internal/ai/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
 
       globalcors:
         add-to-simple-url-handler-mapping: true
@@ -59,3 +217,14 @@ management:
     health:
       probes:
         enabled: true
+
+logging:
+  level:
+    # 커스텀 로깅 필터만 INFO 레벨
+    com.ctrlf.gateway.filter: INFO
+    # DEBUG 로그 비활성화
+    org.springframework.cloud.gateway: INFO
+    org.springframework.web.server.handler: INFO
+    org.springframework.web.reactive.function.client: INFO
+    org.springframework.cloud.gateway.filter.headers: WARN
+    org.springframework.cloud.gateway.filter.handler: WARN

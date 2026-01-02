@@ -352,19 +352,44 @@ public class RagDocumentService {
      */
     @org.springframework.transaction.annotation.Transactional
     public ChunksBulkUpsertResponse bulkUpsertChunks(String documentId, ChunksBulkUpsertRequest req) {
+        try {
         UUID docId = parseUuid(documentId);
+            log.info("청크 bulk upsert 시작: documentId={}, chunksCount={}", documentId, 
+                req.getChunks() != null ? req.getChunks().size() : 0);
         
         // 문서 존재 확인
         if (!documentRepository.existsById(docId)) {
+                log.error("문서를 찾을 수 없음: documentId={}", documentId);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "document not found: " + documentId);
         }
 
         // 기존 청크 삭제 (재적재 시)
         chunkRepository.deleteByDocumentId(docId);
+            log.debug("기존 청크 삭제 완료: documentId={}", documentId);
 
-        // 새 청크 저장
+            // 입력값 검증 및 새 청크 저장
+            if (req.getChunks() == null || req.getChunks().isEmpty()) {
+                log.warn("청크 리스트가 비어있음: documentId={}", documentId);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "chunks list is empty");
+            }
+
         List<RagDocumentChunk> chunks = new ArrayList<>();
-        for (ChunkItem item : req.getChunks()) {
+            for (int i = 0; i < req.getChunks().size(); i++) {
+                ChunkItem item = req.getChunks().get(i);
+                
+                // 입력값 검증
+                if (item.getChunkIndex() == null) {
+                    log.error("청크 인덱스가 null: documentId={}, chunkIndex={}", documentId, i);
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                        "chunkIndex is null at index " + i);
+                }
+                if (item.getChunkText() == null || item.getChunkText().isBlank()) {
+                    log.error("청크 텍스트가 null 또는 빈 문자열: documentId={}, chunkIndex={}", 
+                        documentId, item.getChunkIndex());
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                        "chunkText is null or blank at chunkIndex " + item.getChunkIndex());
+                }
+                
             RagDocumentChunk chunk = new RagDocumentChunk();
             chunk.setDocumentId(docId);
             chunk.setChunkIndex(item.getChunkIndex());
@@ -375,11 +400,20 @@ public class RagDocumentService {
             chunks.add(chunk);
         }
         
+            log.debug("청크 저장 시도: documentId={}, count={}", documentId, chunks.size());
         chunkRepository.saveAll(chunks);
         
         log.info("청크 bulk upsert 완료: documentId={}, count={}", documentId, chunks.size());
         
         return new ChunksBulkUpsertResponse(true, chunks.size());
+        } catch (ResponseStatusException e) {
+            // 이미 처리된 예외는 그대로 전파
+            throw e;
+        } catch (Exception e) {
+            log.error("청크 bulk upsert 실패: documentId={}, error={}", documentId, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "Failed to save chunks: " + e.getMessage(), e);
+        }
     }
 
     /**
