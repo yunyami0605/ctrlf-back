@@ -124,7 +124,7 @@ public class GlobalExceptionHandler {
      * @return 500 INTERNAL_SERVER_ERROR 응답 (SSE 요청이 아닌 경우)
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleException(Exception ex) {
+    public ResponseEntity<Map<String, Object>> handleException(Exception ex) throws Exception {
         // SSE 요청인 경우 예외를 그대로 전파 (서비스 레이어에서 SSE 에러 이벤트로 처리)
         if (isSseRequest()) {
             throw ex;
