@@ -189,6 +189,14 @@ spring:
           filters:
             - StripPrefix=0 # 경로 그대로 전달
 
+        # 영상 생성 콜백 (education-service)
+        - id: internal-video-route
+          uri: http://localhost:9002
+          predicates:
+            - Path=/internal/video/**
+          filters:
+            - StripPrefix=0 # 경로 그대로 전달
+
         # AI 서버로의 요청 (백엔드 → AI 서버)
         - id: internal-ai-route
           uri: http://localhost:8000

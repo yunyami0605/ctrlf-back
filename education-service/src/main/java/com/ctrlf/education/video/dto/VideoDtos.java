@@ -214,6 +214,7 @@ public final class VideoDtos {
         @Schema(description = "Job ID") UUID jobId,
         @Schema(description = "스크립트 ID") UUID scriptId,
         @Schema(description = "교육 ID") UUID eduId,
+        @Schema(description = "영상 ID (생성된 경우)") UUID videoId,
         @Schema(description = "상태") String status,
         @Schema(description = "재시도 횟수") Integer retryCount,
         @Schema(description = "생성된 영상 URL") String videoUrl,

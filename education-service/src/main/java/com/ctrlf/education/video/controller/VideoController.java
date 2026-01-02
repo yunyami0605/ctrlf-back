@@ -177,32 +177,6 @@ public class VideoController {
         return ResponseEntity.ok(videoService.retryVideoJob(jobId));
     }
 
-    /**
-     * AI 서버로부터 영상 생성 완료 콜백을 수신합니다.
-     * (AI 서버 → 백엔드)
-     *
-     * @param jobId    Job ID
-     * @param callback 콜백 데이터
-     * @return 저장 결과
-     */
-    @Operation(summary = "영상 생성 완료 콜백 (AI -> 백엔드)", 
-        description = "AI 서버가 영상 생성 완료 후 백엔드로 결과를 전달합니다. (내부 API)")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "콜백 처리 성공",
-            content = @Content(schema = @Schema(implementation = VideoCompleteResponse.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청",
-            content = @Content),
-        @ApiResponse(responseCode = "404", description = "Job을 찾을 수 없음",
-            content = @Content)
-    })
-    @PostMapping("/job/{jobId}/complete")
-    public ResponseEntity<VideoCompleteResponse> handleVideoComplete(
-        @Parameter(description = "Job ID", required = true)
-        @PathVariable UUID jobId,
-        @Valid @RequestBody VideoCompleteCallback callback
-    ) {
-        return ResponseEntity.ok(videoService.handleVideoComplete(jobId, callback));
-    }
 
     // ========================
     // 영상 메타 조회 API

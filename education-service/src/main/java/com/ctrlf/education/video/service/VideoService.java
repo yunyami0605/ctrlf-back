@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -349,10 +350,16 @@ public class VideoService {
     }
 
     private JobItem toJobItem(VideoGenerationJob j) {
+        // jobId로 연결된 video 찾기
+        UUID videoId = videoRepository.findByGenerationJobId(j.getId())
+            .map(EducationVideo::getId)
+            .orElse(null);
+        
         return new JobItem(
             j.getId(),
             j.getScriptId(),
             j.getEducationId(),
+            videoId,
             j.getStatus(),
             j.getRetryCount(),
             j.getGeneratedVideoUrl(),
