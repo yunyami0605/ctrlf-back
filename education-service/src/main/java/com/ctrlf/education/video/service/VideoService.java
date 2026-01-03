@@ -35,13 +35,13 @@ import com.ctrlf.education.video.repository.EducationVideoRepository;
 import com.ctrlf.education.video.repository.EducationVideoReviewRepository;
 import com.ctrlf.education.video.repository.VideoGenerationJobRepository;
 import com.ctrlf.education.video.repository.SourceSetRepository;
+import com.ctrlf.education.video.repository.EducationVideoProgressRepository;
 import com.ctrlf.education.video.entity.SourceSet;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -86,6 +86,7 @@ public class VideoService {
     private final VideoAiClient videoAiClient;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final SourceSetRepository sourceSetRepository;
+    private final EducationVideoProgressRepository videoProgressRepository;
 
     @Value("${ctrlf.infra.base-url:http://localhost:9003}")
     private String infraBaseUrl;
@@ -439,6 +440,14 @@ public class VideoService {
             sourceSetRepository.save(sourceSet);
             log.debug("SourceSet의 video_id 참조 해제. sourceSetId={}, videoId={}", sourceSet.getId(), videoId);
         }
+        
+        // education_video_progress에서 video_id 참조 레코드 삭제
+        videoProgressRepository.deleteByVideoId(videoId);
+        log.debug("EducationVideoProgress 레코드 삭제. videoId={}", videoId);
+        
+        // education_video_review에서 video_id 참조 레코드 삭제
+        reviewRepository.deleteByVideoId(videoId);
+        log.debug("EducationVideoReview 레코드 삭제. videoId={}", videoId);
         
         videoRepository.deleteById(videoId);
         log.info("영상 컨텐츠 삭제. videoId={}, 해제된 sourceSet 수={}", videoId, sourceSets.size());

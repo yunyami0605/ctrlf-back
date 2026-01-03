@@ -34,6 +34,11 @@ public interface EducationVideoProgressRepository extends JpaRepository<Educatio
     @Modifying
     @Query(value = "UPDATE education.education_video_progress SET deleted_at = now() WHERE education_id = :educationId AND deleted_at IS NULL", nativeQuery = true)
     int softDeleteByEducationId(@Param("educationId") UUID educationId);
+
+    /**
+     * 특정 비디오의 모든 진행 이력을 삭제합니다.
+     */
+    void deleteByVideoId(UUID videoId);
 }
 
 

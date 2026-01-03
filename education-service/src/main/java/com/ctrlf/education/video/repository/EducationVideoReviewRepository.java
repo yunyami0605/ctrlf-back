@@ -16,6 +16,11 @@ public interface EducationVideoReviewRepository extends JpaRepository<EducationV
      */
     @Query("SELECT r FROM EducationVideoReview r WHERE r.videoId = :videoId AND r.deletedAt IS NULL ORDER BY r.createdAt DESC")
     List<EducationVideoReview> findByVideoIdOrderByCreatedAtDesc(@Param("videoId") UUID videoId);
+
+    /**
+     * 특정 비디오의 모든 리뷰를 삭제합니다.
+     */
+    void deleteByVideoId(UUID videoId);
 }
 
 
