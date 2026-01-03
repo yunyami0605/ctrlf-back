@@ -118,6 +118,15 @@ public final class PersonalizationDtos {
         private double wrong_rate;
     }
 
+    // ---------- Q6: 가장 많이 틀린 보안 토픽 TOP3 ----------
+    @Getter
+    @AllArgsConstructor
+    public static class Q6TopicItem {
+        private int rank;
+        private String topic;
+        private double wrong_rate;
+    }
+
     // ---------- Q9: 이번 주 교육/퀴즈 할 일 ----------
     @Getter
     @AllArgsConstructor

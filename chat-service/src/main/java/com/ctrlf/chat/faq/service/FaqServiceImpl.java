@@ -1,6 +1,7 @@
 package com.ctrlf.chat.faq.service;
 
 import com.ctrlf.chat.faq.dto.request.AutoFaqGenerateRequest;
+import com.ctrlf.chat.faq.dto.request.FaqCreateRequest;
 import com.ctrlf.chat.faq.dto.request.FaqDraftGenerateBatchRequest;
 import com.ctrlf.chat.faq.dto.request.FaqDraftGenerateRequest;
 import com.ctrlf.chat.faq.dto.request.FaqUpdateRequest;
@@ -35,6 +36,24 @@ public class FaqServiceImpl implements FaqService {
     // =========================
     // FAQ 조회 및 관리
     // =========================
+
+    @Override
+    public UUID create(FaqCreateRequest request) {
+        Faq faq = new Faq();
+        faq.setQuestion(request.getQuestion());
+        faq.setAnswer(request.getAnswer());
+        faq.setDomain(request.getDomain());
+        faq.setIsActive(true);
+        faq.setPriority(request.getPriority());
+        faq.setNeedsRecategorization(false);
+        faq.setPublishedAt(Instant.now());
+        faq.setCreatedAt(Instant.now());
+        faq.setUpdatedAt(Instant.now());
+
+        faqRepository.save(faq);
+        log.info("FAQ 수동 생성 완료: id={}, question={}, domain={}", faq.getId(), faq.getQuestion(), faq.getDomain());
+        return faq.getId();
+    }
 
     @Override
     @Transactional(readOnly = true)

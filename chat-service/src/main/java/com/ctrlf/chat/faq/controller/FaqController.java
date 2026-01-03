@@ -1,8 +1,10 @@
 package com.ctrlf.chat.faq.controller;
 
+import com.ctrlf.chat.faq.dto.request.FaqCreateRequest;
 import com.ctrlf.chat.faq.dto.request.FaqUpdateRequest;
 import com.ctrlf.chat.faq.dto.response.FaqResponse;
 import com.ctrlf.chat.faq.service.FaqService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +15,8 @@ import org.springframework.web.bind.annotation.*;
  * FAQ 관리 API 컨트롤러
  * 
  * <p>FAQ는 AI가 초안을 생성하고 관리자가 승인하는 구조입니다.
- * 관리자는 AI가 생성한 FAQ를 수정하거나 삭제(비활성화)할 수 있습니다.</p>
+ * 관리자는 AI가 생성한 FAQ를 수정하거나 삭제(비활성화)할 수 있습니다.
+ * 또한 관리자는 수동으로 FAQ를 생성할 수도 있습니다.</p>
  */
 @RestController
 @RequestMapping("/chat/faq")
@@ -21,6 +24,20 @@ import org.springframework.web.bind.annotation.*;
 public class FaqController {
 
     private final FaqService faqService;
+
+    /**
+     * FAQ 수동 생성 (관리자)
+     * 
+     * <p>관리자가 수동으로 FAQ를 생성합니다. 생성된 FAQ는 즉시 활성화되어 사용자에게 노출됩니다.</p>
+     * 
+     * @param request FAQ 생성 요청 (질문, 답변, 도메인, 우선순위)
+     * @return 생성된 FAQ ID
+     */
+    @PostMapping
+    public ResponseEntity<UUID> create(@Valid @RequestBody FaqCreateRequest request) {
+        UUID faqId = faqService.create(request);
+        return ResponseEntity.ok(faqId);
+    }
 
     /**
      * FAQ 조회 (유저)

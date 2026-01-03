@@ -11,9 +11,42 @@ FAQ Service는 FAQ(자주 묻는 질문) 관리 및 조회 기능을 제공하�
 
 ## 1. FAQ 관리 APIs (관리자)
 
-**참고**: FAQ는 AI가 초안을 생성하고 관리자가 승인하는 구조입니다. 수동으로 FAQ를 생성하는 API는 제공되지 않습니다.
+**참고**: FAQ는 AI가 초안을 생성하고 관리자가 승인하는 구조입니다. 또한 관리자는 수동으로 FAQ를 생성할 수도 있습니다.
 
-### 1.1 FAQ 수정
+### 1.1 FAQ 수동 생성
+
+관리자가 수동으로 FAQ를 생성합니다. 생성된 FAQ는 즉시 활성화되어 사용자에게 노출됩니다.
+
+**Endpoint**: `POST /chat/faq`
+
+**Request Body**:
+```json
+{
+  "question": "비밀번호를 잊어버렸어요",
+  "answer": "비밀번호 재설정 페이지에서 이메일을 입력하시면 재설정 링크를 보내드립니다.",
+  "domain": "SECURITY",
+  "priority": 1
+}
+```
+
+**Response** (200 OK):
+```json
+"239d0429-b517-4897-beb0-bd1f699999da"
+```
+
+**필드 설명**:
+- `question` (String, 필수): 질문 내용 (최대 500자)
+- `answer` (String, 필수): 답변 내용 (최대 5000자)
+- `domain` (String, 필수): 도메인 (예: SECURITY, POLICY, EDUCATION 등, 최대 50자)
+- `priority` (Integer, 필수): 우선순위 (1~5, 값이 작을수록 상위 노출)
+
+**참고**:
+- 생성된 FAQ는 `isActive = true`, `publishedAt = 현재 시각`으로 설정되어 즉시 사용자에게 노출됩니다.
+- 초기 데이터는 Flyway 마이그레이션(`V15__insert_initial_faq_data.sql`)을 통해 자동으로 삽입됩니다.
+
+---
+
+### 1.2 FAQ 수정
 
 기존 FAQ를 수정합니다.
 
@@ -41,7 +74,7 @@ FAQ Service는 FAQ(자주 묻는 질문) 관리 및 조회 기능을 제공하�
 
 ---
 
-### 1.2 FAQ 삭제 (Soft Delete)
+### 1.3 FAQ 삭제 (Soft Delete)
 
 FAQ를 삭제합니다. 실제로는 `isActive = false`로 설정하는 소프트 삭제입니다.
 
@@ -54,7 +87,7 @@ FAQ를 삭제합니다. 실제로는 `isActive = false`로 설정하는 소프�
 
 ---
 
-### 1.3 FAQ 목록 조회 (활성화된 FAQ만)
+### 1.4 FAQ 목록 조회 (활성화된 FAQ만)
 
 활성화된 FAQ 목록을 조회합니다.
 
@@ -621,9 +654,13 @@ FAQ UI 카테고리를 비활성화합니다.
 - 모든 UUID는 표준 UUID 형식입니다.
 - 모든 날짜/시간은 ISO 8601 형식 (UTC)입니다.
 - 인증이 필요한 API는 `Authorization: Bearer {token}` 헤더를 포함해야 합니다.
+- **초기 데이터**: 서비스 시작 시 Flyway 마이그레이션(`V15__insert_initial_faq_data.sql`)을 통해 기본 FAQ 9개가 자동으로 삽입됩니다 (SECURITY 3개, POLICY 3개, EDUCATION 3개).
+- **FAQ 생성 방식**:
+  - **자동 생성**: 사용자 질문 로그를 분석하여 AI가 후보를 선정하고 초안을 생성한 후, 관리자가 승인하여 FAQ로 생성
+  - **수동 생성**: 관리자가 직접 FAQ를 생성 (즉시 활성화되어 사용자에게 노출)
 - FAQ 후보는 사용자 질문을 분석하여 자동으로 생성될 수 있습니다.
 - FAQ Draft는 AI 서비스를 통해 자동 생성되며, 관리자가 검토 후 승인/반려할 수 있습니다.
-- FAQ는 승인된 Draft를 기반으로 생성됩니다.
+- FAQ는 승인된 Draft를 기반으로 생성되거나, 관리자가 수동으로 생성할 수 있습니다.
 - Draft 생성 시 AI 서버가 RAGFlow를 직접 호출합니다. RAGFlow 서버가 실행 중이 아니면 Draft 생성이 실패할 수 있습니다.
 - Draft 목록 조회 시 `status=PENDING`을 사용하면 자동으로 `DRAFT`로 매핑됩니다.
 - Query Parameter에 한글이 포함된 경우 URL 인코딩이 필요합니다 (예: `question`, `answer`, `reason`).

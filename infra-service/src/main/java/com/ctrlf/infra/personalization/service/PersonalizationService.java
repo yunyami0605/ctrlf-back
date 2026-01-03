@@ -56,6 +56,7 @@ public class PersonalizationService {
                 case "Q1" -> handleQ1(userId, periodStart, periodEnd, updatedAt);
                 case "Q3" -> handleQ3(userId, periodStart, periodEnd, updatedAt);
                 case "Q5" -> handleQ5(userId, periodStart, periodEnd, updatedAt, targetDeptId);
+                case "Q6" -> handleQ6(userId, periodStart, periodEnd, updatedAt);
                 case "Q9" -> handleQ9(userId, periodStart, periodEnd, updatedAt);
                 case "Q11" -> handleQ11(userId, periodStart, periodEnd, updatedAt);
                 case "Q14" -> handleQ14(userId, periodStart, periodEnd, updatedAt);
@@ -133,6 +134,25 @@ public class PersonalizationService {
             ),
             List.of(),
             extra,
+            null
+        );
+    }
+
+    // ---------- Q6: 가장 많이 틀린 보안 토픽 TOP3 ----------
+    private ResolveResponse handleQ6(String userId, String periodStart, String periodEnd, String updatedAt) {
+        // TODO: quiz-service에서 오답률 높은 토픽 조회
+        log.warn("Q6 handler: Stub implementation - userId={}", userId);
+        
+        List<Object> items = new ArrayList<>();
+        items.add(new Q6TopicItem(1, "피싱 메일 식별", 35.2));
+        items.add(new Q6TopicItem(2, "비밀번호 정책", 28.5));
+        items.add(new Q6TopicItem(3, "데이터 암호화", 22.1));
+
+        return new ResolveResponse(
+            "Q6", periodStart, periodEnd, updatedAt,
+            Map.of(),
+            items,
+            Map.of(),
             null
         );
     }

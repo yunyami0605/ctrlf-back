@@ -1,6 +1,7 @@
 package com.ctrlf.chat.faq.service;
 
 import com.ctrlf.chat.faq.dto.request.AutoFaqGenerateRequest;
+import com.ctrlf.chat.faq.dto.request.FaqCreateRequest;
 import com.ctrlf.chat.faq.dto.request.FaqDraftGenerateBatchRequest;
 import com.ctrlf.chat.faq.dto.request.FaqUpdateRequest;
 import com.ctrlf.chat.faq.dto.response.AutoFaqGenerateResponse;
@@ -14,9 +15,13 @@ import java.util.UUID;
  * FAQ 서비스 인터페이스
  * 
  * <p>FAQ는 AI가 초안을 생성하고 관리자가 승인하는 구조입니다.
- * 관리자는 AI가 생성한 FAQ를 수정하거나 삭제(비활성화)할 수 있습니다.</p>
+ * 관리자는 AI가 생성한 FAQ를 수정하거나 삭제(비활성화)할 수 있습니다.
+ * 또한 관리자는 수동으로 FAQ를 생성할 수도 있습니다.</p>
  */
 public interface FaqService {
+
+    /** FAQ 수동 생성 (관리자) */
+    UUID create(FaqCreateRequest request);
 
     /** 게시 FAQ 조회 */
     List<FaqResponse> getAll();
