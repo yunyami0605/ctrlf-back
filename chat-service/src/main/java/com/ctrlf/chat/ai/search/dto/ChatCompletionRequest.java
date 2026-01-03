@@ -36,7 +36,13 @@ public class ChatCompletionRequest {
     @JsonProperty("messages")
     private List<Message> messages;
 
-    // 일반 채팅용 생성자 (request_id 없음)
+    // A/B 테스트 임베딩 모델 선택 (선택)
+    // "openai" (text-embedding-3-large) 또는 "sroberta" (ko-sroberta-multitask)
+    // null인 경우 기본값(openai) 사용
+    @JsonProperty("model")
+    private String model;
+
+    // 일반 채팅용 생성자 (request_id, model 없음) - 후방 호환성
     public ChatCompletionRequest(
         UUID session_id,
         UUID user_id,
@@ -54,9 +60,10 @@ public class ChatCompletionRequest {
         this.domain = domain;
         this.channel = channel;
         this.messages = messages;
+        this.model = null;
     }
 
-    // 스트리밍용 생성자 (request_id 포함)
+    // 스트리밍용 생성자 (request_id 포함, model 없음) - 후방 호환성
     public ChatCompletionRequest(
         String request_id,
         UUID session_id,
@@ -75,6 +82,30 @@ public class ChatCompletionRequest {
         this.domain = domain;
         this.channel = channel;
         this.messages = messages;
+        this.model = null;
+    }
+
+    // A/B 테스트용 생성자 (model 포함)
+    public ChatCompletionRequest(
+        String request_id,
+        UUID session_id,
+        UUID user_id,
+        String user_role,
+        String department,
+        String domain,
+        String channel,
+        List<Message> messages,
+        String model
+    ) {
+        this.request_id = request_id;
+        this.session_id = session_id;
+        this.user_id = user_id;
+        this.user_role = user_role;
+        this.department = department;
+        this.domain = domain;
+        this.channel = channel;
+        this.messages = messages;
+        this.model = model;
     }
 
     @Getter
