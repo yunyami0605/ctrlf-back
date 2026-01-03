@@ -51,8 +51,8 @@ public final class TelemetryDtos {
         @NotBlank
         private String eventType; // CHAT_TURN | FEEDBACK | SECURITY
 
-        @NotNull
-        private UUID traceId;
+        @NotBlank
+        private String traceId;
 
         private String conversationId;
         private Integer turnId;

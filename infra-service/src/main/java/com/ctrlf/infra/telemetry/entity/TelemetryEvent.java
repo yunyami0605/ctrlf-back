@@ -41,9 +41,9 @@ public class TelemetryEvent {
     @Column(name = "event_type", length = 30, nullable = false)
     private String eventType;
 
-    /** X-Trace-Id */
-    @Column(name = "trace_id", columnDefinition = "uuid", nullable = false)
-    private UUID traceId;
+    /** X-Trace-Id (UUID 또는 문자열) */
+    @Column(name = "trace_id", length = 200, nullable = false)
+    private String traceId;
 
     /** X-Conversation-Id */
     @Column(name = "conversation_id", length = 100)
