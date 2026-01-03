@@ -80,11 +80,12 @@ public class VideoAiClient {
         // X-Internal-Token 헤더 자동 추가 (설정값이 있으면)
         if (internalToken != null && !internalToken.isBlank()) {
             builder.defaultHeader("X-Internal-Token", internalToken);
+            log.info("VideoAiClient 초기화 완료: baseUrl={}, X-Internal-Token 설정됨", this.baseUrl);
+        } else {
+            log.warn("VideoAiClient 초기화 완료: baseUrl={}, X-Internal-Token이 설정되지 않았습니다. FastAPI 서버에서 401 Unauthorized 에러가 발생할 수 있습니다. 환경변수 AI_INTERNAL_TOKEN 또는 app.ai.token 설정을 확인하세요.", this.baseUrl);
         }
         
         this.restClient = builder.build();
-        
-        log.info("VideoAiClient 초기화 완료: baseUrl={}", this.baseUrl);
     }
 
     /**

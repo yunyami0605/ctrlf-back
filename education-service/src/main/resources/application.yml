@@ -35,10 +35,20 @@ management:
       probes:
         enabled: true
 
-
 # 개발 환경 설정
 dev:
   auto-source-set-callback: false # true로 설정 시 소스셋 생성 후 자동으로 콜백 시뮬레이션 (AI 서버 호출 없이 처리)
+
+# AI 서버 설정
+app:
+  ai:
+    # AI 서버 내부 API 인증 토큰 (환경변수 AI_INTERNAL_TOKEN 또는 이 값 사용)
+    # FastAPI 서버의 BACKEND_INTERNAL_TOKEN과 동일한 값으로 설정해야 합니다.
+    token: ${AI_INTERNAL_TOKEN:dev-internal-token}
+  video:
+    ai:
+      # AI 서버 베이스 URL
+      base-url: ${AI_BASE_URL:http://localhost:8000}
 
 # Feign 클라이언트 설정
 spring.cloud.openfeign:
