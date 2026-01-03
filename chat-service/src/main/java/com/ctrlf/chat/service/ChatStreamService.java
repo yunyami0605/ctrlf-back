@@ -54,6 +54,9 @@ public class ChatStreamService {
                         sessionId, "user")
                     .orElseThrow();
 
+            // TODO: 스트리밍에서 A/B 테스트 지원을 위해서는
+            // user 메시지 저장 시 model 정보를 함께 저장하고 여기서 조회해야 함
+            // 현재는 기본값(null = openai) 사용
             ChatCompletionRequest req =
                 new ChatCompletionRequest(
                     "stream-" + messageId,
@@ -63,7 +66,8 @@ public class ChatStreamService {
                     session.getDomain(),
                     session.getDomain(),
                     "WEB",
-                    List.of(new Message("user", lastUser.getContent()))
+                    List.of(new Message("user", lastUser.getContent())),
+                    null  // A/B 테스트 model (현재 스트리밍에서는 기본값 사용)
                 );
 
             StringBuilder answerBuf = new StringBuilder();

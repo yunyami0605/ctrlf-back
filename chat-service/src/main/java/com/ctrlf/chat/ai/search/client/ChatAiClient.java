@@ -30,7 +30,8 @@ public class ChatAiClient {
         String department,
         String domain,
         String channel,
-        String message
+        String message,
+        String model
     ) {
         ChatAiRequest request =
             new ChatAiRequest(
@@ -40,7 +41,8 @@ public class ChatAiClient {
                 department,
                 domain,
                 channel,
-                List.of(new ChatAiMessage("user", message))
+                List.of(new ChatAiMessage("user", message)),
+                model
             );
 
         return aiWebClient.post()
@@ -49,6 +51,19 @@ public class ChatAiClient {
             .retrieve()
             .bodyToMono(ChatAiResponse.class)
             .block();
+    }
+
+    // ✅ 후방 호환용 (model 없음) - 기본값(openai) 사용
+    public ChatAiResponse ask(
+        UUID sessionId,
+        UUID userId,
+        String userRole,
+        String department,
+        String domain,
+        String channel,
+        String message
+    ) {
+        return ask(sessionId, userId, userRole, department, domain, channel, message, null);
     }
 
     // ⚠️ 세션 요약 전용 (현재 AI 서비스에 해당 엔드포인트가 없어 주석 처리)

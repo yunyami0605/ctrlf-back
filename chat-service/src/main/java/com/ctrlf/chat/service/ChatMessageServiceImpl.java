@@ -68,7 +68,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                     department,
                     domain,
                     "WEB",
-                    request.content()
+                    request.content(),
+                    request.model()  // A/B 테스트용 model 전달
                 );
         } catch (Exception e) {
             log.error("[AI] call failed", e);
