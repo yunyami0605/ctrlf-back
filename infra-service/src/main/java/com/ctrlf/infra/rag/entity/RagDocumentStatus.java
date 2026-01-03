@@ -32,6 +32,9 @@ public enum RagDocumentStatus {
     /** 대기 (승인 대기 중인 사규) */
     PENDING,
     
+    /** 반려됨 (검토 후 반려된 사규) */
+    REJECTED,
+    
     /** 보관됨 (더 이상 사용하지 않는 사규) */
     ARCHIVED;
 
@@ -70,7 +73,8 @@ public enum RagDocumentStatus {
      */
     public boolean isPolicyManagementStatus() {
         return this == ACTIVE || this == DRAFT || 
-               this == PENDING || this == ARCHIVED;
+               this == PENDING || this == ARCHIVED || 
+               this == REJECTED;
     }
 }
 

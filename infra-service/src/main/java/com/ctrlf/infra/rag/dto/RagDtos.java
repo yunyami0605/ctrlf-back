@@ -6,6 +6,7 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * RAG 관련 요청/응답 DTO 모음.
@@ -309,13 +310,13 @@ public final class RagDtos {
         private String processedAt;
         // 전처리 관련 필드
         private String preprocessStatus; // "IDLE", "PROCESSING", "READY", "FAILED"
-        private Integer preprocessPages;
-        private Integer preprocessChars;
-        private String preprocessExcerpt;
         private String preprocessError;
         // 검토 관련 필드
         private String reviewRequestedAt;
         private String reviewItemId;
+        // 반려 관련 필드
+        private String rejectReason;
+        private String rejectedAt;
     }
 
     /**
@@ -361,6 +362,7 @@ public final class RagDtos {
      * 새 버전 생성 요청 DTO.
      */
     @Getter
+    @Setter
     @NoArgsConstructor
     public static class CreateVersionRequest {
         @Schema(example = "s3://ctrl-s3/docs/policy_v2.pdf")
@@ -368,6 +370,12 @@ public final class RagDtos {
 
         @Schema(example = "퀴즈 리포트 및 배포 캘린더 추가")
         private String changeSummary;
+
+        @Schema(example = "직장내괴롭힘 예방 교육", description = "문서 제목 (옵션, 없으면 최신 버전의 제목 사용)")
+        private String title;
+
+        @Schema(example = "2", description = "버전 번호 (옵션, 없으면 자동 증가)")
+        private Integer version;
     }
 
     /**
@@ -437,6 +445,42 @@ public final class RagDtos {
     }
 
     /**
+     * 검토 승인 요청 DTO.
+     */
+    @Getter
+    @NoArgsConstructor
+    public static class ApproveReviewRequest {
+        // 승인은 사유가 필요 없을 수 있지만, 향후 확장을 위해 빈 DTO로 유지
+    }
+
+    /**
+     * 검토 반려 요청 DTO.
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class RejectReviewRequest {
+        @NotBlank
+        @Schema(example = "내용이 불충분합니다.", description = "반려 사유 (필수)")
+        private String reason;
+    }
+
+    /**
+     * 검토 승인/반려 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class ReviewResponse {
+        private String id;
+        private String documentId;
+        private Integer version;
+        private String status;
+        private String rejectReason;
+        private String rejectedAt;
+        private String updatedAt;
+    }
+
+    /**
      * 파일 업로드/교체 요청 DTO.
      */
     @Getter
@@ -482,16 +526,6 @@ public final class RagDtos {
 
         @Schema(example = "POL-EDU-015", description = "문서 ID")
         private String documentId;
-
-        // 전처리 미리보기 데이터 (선택)
-        @Schema(example = "10", description = "전처리된 페이지 수")
-        private Integer preprocessPages;
-
-        @Schema(example = "5000", description = "전처리된 문자 수")
-        private Integer preprocessChars;
-
-        @Schema(example = "문서의 첫 부분 미리보기 텍스트...", description = "전처리 미리보기 텍스트")
-        private String preprocessExcerpt;
     }
 
     /**
@@ -517,9 +551,6 @@ public final class RagDtos {
     @AllArgsConstructor
     public static class PreprocessPreviewResponse {
         private String preprocessStatus; // "IDLE", "PROCESSING", "READY", "FAILED"
-        private Integer preprocessPages;
-        private Integer preprocessChars;
-        private String preprocessExcerpt;
         private String preprocessError;
     }
 

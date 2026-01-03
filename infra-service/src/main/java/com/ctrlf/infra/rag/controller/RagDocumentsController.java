@@ -370,6 +370,44 @@ public class RagDocumentsController {
         return ResponseEntity.ok(ragDocumentService.updateStatus(documentId, version, req));
     }
 
+    @PostMapping("/policies/{documentId}/versions/{version}/review/approve")
+    @Operation(
+        summary = "검토 승인",
+        description = "검토 대기(PENDING) 상태인 사규를 승인하여 ACTIVE 상태로 변경합니다. 같은 document_id의 다른 ACTIVE 버전은 자동으로 ARCHIVED로 변경됩니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "승인 성공",
+            content = @Content(schema = @Schema(implementation = ReviewResponse.class))),
+        @ApiResponse(responseCode = "400", description = "PENDING 상태가 아님"),
+        @ApiResponse(responseCode = "404", description = "버전을 찾을 수 없음")
+    })
+    public ResponseEntity<ReviewResponse> approveReview(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId,
+        @Parameter(description = "버전 번호", example = "2") @PathVariable("version") Integer version,
+        @Valid @RequestBody ApproveReviewRequest req
+    ) {
+        return ResponseEntity.ok(ragDocumentService.approveReview(documentId, version, req));
+    }
+
+    @PostMapping("/policies/{documentId}/versions/{version}/review/reject")
+    @Operation(
+        summary = "검토 반려",
+        description = "검토 대기(PENDING) 상태인 사규를 반려하여 REJECTED 상태로 변경합니다. 반려 사유를 필수로 입력해야 합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "반려 성공",
+            content = @Content(schema = @Schema(implementation = ReviewResponse.class))),
+        @ApiResponse(responseCode = "400", description = "PENDING 상태가 아님 또는 반려 사유 누락"),
+        @ApiResponse(responseCode = "404", description = "버전을 찾을 수 없음")
+    })
+    public ResponseEntity<ReviewResponse> rejectReview(
+        @Parameter(description = "사규 document_id", example = "POL-EDU-015") @PathVariable("documentId") String documentId,
+        @Parameter(description = "버전 번호", example = "2") @PathVariable("version") Integer version,
+        @Valid @RequestBody RejectReviewRequest req
+    ) {
+        return ResponseEntity.ok(ragDocumentService.rejectReview(documentId, version, req));
+    }
+
     @PutMapping("/policies/{documentId}/versions/{version}/file")
     @Operation(
         summary = "파일 업로드/교체",
