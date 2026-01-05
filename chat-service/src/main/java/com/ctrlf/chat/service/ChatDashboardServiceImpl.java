@@ -103,6 +103,19 @@ public class ChatDashboardServiceImpl implements ChatDashboardService {
                 if (payloadObj == null) {
                     continue;
                 }
+                // payload가 String인 경우 처리
+                if (payloadObj instanceof String) {
+                    log.debug("[대시보드 요약] payload가 String 타입입니다: eventId={}", 
+                        event.getEventId());
+                    continue;
+                }
+                // payload가 Map인 경우에만 처리
+                if (!(payloadObj instanceof Map)) {
+                    log.debug("[대시보드 요약] payload가 Map 타입이 아닙니다: eventId={}, type={}", 
+                        event.getEventId(), payloadObj.getClass().getName());
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
                 Map<String, Object> payload = (Map<String, Object>) payloadObj;
                 Object latencyObj = payload.get("latencyMsTotal");
                 if (latencyObj instanceof Number) {
@@ -125,6 +138,19 @@ public class ChatDashboardServiceImpl implements ChatDashboardService {
                 if (payloadObj == null) {
                     continue;
                 }
+                // payload가 String인 경우 처리
+                if (payloadObj instanceof String) {
+                    log.debug("[대시보드 요약] payload가 String 타입입니다: eventId={}", 
+                        event.getEventId());
+                    continue;
+                }
+                // payload가 Map인 경우에만 처리
+                if (!(payloadObj instanceof Map)) {
+                    log.debug("[대시보드 요약] payload가 Map 타입이 아닙니다: eventId={}, type={}", 
+                        event.getEventId(), payloadObj.getClass().getName());
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
                 Map<String, Object> payload = (Map<String, Object>) payloadObj;
                 Boolean piiInput = (Boolean) payload.get("piiDetectedInput");
                 Boolean piiOutput = (Boolean) payload.get("piiDetectedOutput");
@@ -146,6 +172,19 @@ public class ChatDashboardServiceImpl implements ChatDashboardService {
                 if (payloadObj == null) {
                     continue;
                 }
+                // payload가 String인 경우 처리
+                if (payloadObj instanceof String) {
+                    log.debug("[대시보드 요약] payload가 String 타입입니다: eventId={}", 
+                        event.getEventId());
+                    continue;
+                }
+                // payload가 Map인 경우에만 처리
+                if (!(payloadObj instanceof Map)) {
+                    log.debug("[대시보드 요약] payload가 Map 타입이 아닙니다: eventId={}, type={}", 
+                        event.getEventId(), payloadObj.getClass().getName());
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
                 Map<String, Object> payload = (Map<String, Object>) payloadObj;
                 Object errorCode = payload.get("errorCode");
                 if (errorCode != null) {
@@ -170,6 +209,19 @@ public class ChatDashboardServiceImpl implements ChatDashboardService {
                 if (payloadObj == null) {
                     continue;
                 }
+                // payload가 String인 경우 처리
+                if (payloadObj instanceof String) {
+                    log.debug("[대시보드 요약] 피드백 이벤트 payload가 String 타입입니다: eventId={}", 
+                        event.getEventId());
+                    continue;
+                }
+                // payload가 Map인 경우에만 처리
+                if (!(payloadObj instanceof Map)) {
+                    log.debug("[대시보드 요약] 피드백 이벤트 payload가 Map 타입이 아닙니다: eventId={}, type={}", 
+                        event.getEventId(), payloadObj.getClass().getName());
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
                 Map<String, Object> payload = (Map<String, Object>) payloadObj;
                 String feedback = (String) payload.get("feedback");
                 if ("like".equals(feedback)) {
@@ -199,6 +251,19 @@ public class ChatDashboardServiceImpl implements ChatDashboardService {
                 if (payloadObj == null) {
                     continue;
                 }
+                // payload가 String인 경우 처리
+                if (payloadObj instanceof String) {
+                    log.debug("[대시보드 요약] payload가 String 타입입니다: eventId={}", 
+                        event.getEventId());
+                    continue;
+                }
+                // payload가 Map인 경우에만 처리
+                if (!(payloadObj instanceof Map)) {
+                    log.debug("[대시보드 요약] payload가 Map 타입이 아닙니다: eventId={}, type={}", 
+                        event.getEventId(), payloadObj.getClass().getName());
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
                 Map<String, Object> payload = (Map<String, Object>) payloadObj;
                 Boolean ragUsed = (Boolean) payload.get("ragUsed");
                 if (Boolean.TRUE.equals(ragUsed)) {
@@ -283,6 +348,19 @@ public class ChatDashboardServiceImpl implements ChatDashboardService {
                     if (payloadObj == null) {
                         continue;
                     }
+                    // payload가 String인 경우 처리
+                    if (payloadObj instanceof String) {
+                        log.debug("[대시보드 추이] payload가 String 타입입니다: eventId={}", 
+                            event.getEventId());
+                        continue;
+                    }
+                    // payload가 Map인 경우에만 처리
+                    if (!(payloadObj instanceof Map)) {
+                        log.debug("[대시보드 추이] payload가 Map 타입이 아닙니다: eventId={}, type={}", 
+                            event.getEventId(), payloadObj.getClass().getName());
+                        continue;
+                    }
+                    @SuppressWarnings("unchecked")
                     Map<String, Object> payload = (Map<String, Object>) payloadObj;
                     Object errorCode = payload.get("errorCode");
                     if (errorCode != null) {
@@ -354,6 +432,7 @@ public class ChatDashboardServiceImpl implements ChatDashboardService {
                     domainCountMap.merge("ETC", 1L, Long::sum);
                     continue;
                 }
+                @SuppressWarnings("unchecked")
                 Map<String, Object> payload = (Map<String, Object>) payloadObj;
                 String domain = (String) payload.get("domain");
                 if (domain == null || domain.isBlank()) {

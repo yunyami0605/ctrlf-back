@@ -104,16 +104,21 @@ public class TelemetryService {
         int externalDomainBlockCount = 0;
 
         for (TelemetryEvent event : securityEvents) {
-            Map<String, Object> payload = (Map<String, Object>) event.getPayload();
-            Boolean blocked = (Boolean) payload.get("blocked");
-            String blockType = (String) payload.get("blockType");
+            try {
+                Map<String, Object> payload = parsePayload(event.getPayload());
+                Boolean blocked = (Boolean) payload.get("blocked");
+                String blockType = (String) payload.get("blockType");
 
-            if (Boolean.TRUE.equals(blocked)) {
-                if ("PII_BLOCK".equals(blockType)) {
-                    piiBlockCount++;
-                } else if ("EXTERNAL_DOMAIN_BLOCK".equals(blockType)) {
-                    externalDomainBlockCount++;
+                if (Boolean.TRUE.equals(blocked)) {
+                    if ("PII_BLOCK".equals(blockType)) {
+                        piiBlockCount++;
+                    } else if ("EXTERNAL_DOMAIN_BLOCK".equals(blockType)) {
+                        externalDomainBlockCount++;
+                    }
                 }
+            } catch (Exception e) {
+                log.debug("[보안 지표] 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                    event.getEventId(), e.getMessage());
             }
         }
 
@@ -153,12 +158,17 @@ public class TelemetryService {
         long dislikeCount = 0;
         long likeCount = 0;
         for (TelemetryEvent event : feedbackEvents) {
-            Map<String, Object> payload = (Map<String, Object>) event.getPayload();
-            String feedback = (String) payload.get("feedback");
-            if ("dislike".equals(feedback)) {
-                dislikeCount++;
-            } else if ("like".equals(feedback)) {
-                likeCount++;
+            try {
+                Map<String, Object> payload = parsePayload(event.getPayload());
+                String feedback = (String) payload.get("feedback");
+                if ("dislike".equals(feedback)) {
+                    dislikeCount++;
+                } else if ("like".equals(feedback)) {
+                    likeCount++;
+                }
+            } catch (Exception e) {
+                log.debug("[성능 지표] 피드백 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                    event.getEventId(), e.getMessage());
             }
         }
         double dislikeRate = (likeCount + dislikeCount > 0) 
@@ -171,10 +181,15 @@ public class TelemetryService {
         // OOS 카운트
         int oosCount = 0;
         for (TelemetryEvent event : chatTurnEvents) {
-            Map<String, Object> payload = (Map<String, Object>) event.getPayload();
-            Boolean oos = (Boolean) payload.get("oos");
-            if (Boolean.TRUE.equals(oos)) {
-                oosCount++;
+            try {
+                Map<String, Object> payload = parsePayload(event.getPayload());
+                Boolean oos = (Boolean) payload.get("oos");
+                if (Boolean.TRUE.equals(oos)) {
+                    oosCount++;
+                }
+            } catch (Exception e) {
+                log.debug("[성능 지표] 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                    event.getEventId(), e.getMessage());
             }
         }
 
@@ -241,18 +256,23 @@ public class TelemetryService {
         Map<String, List<Boolean>> weekOutputPii = new java.util.HashMap<>();
 
         for (TelemetryEvent event : chatTurnEvents) {
-            Map<String, Object> payload = (Map<String, Object>) event.getPayload();
-            Boolean piiInput = (Boolean) payload.get("piiDetectedInput");
-            Boolean piiOutput = (Boolean) payload.get("piiDetectedOutput");
+            try {
+                Map<String, Object> payload = parsePayload(event.getPayload());
+                Boolean piiInput = (Boolean) payload.get("piiDetectedInput");
+                Boolean piiOutput = (Boolean) payload.get("piiDetectedOutput");
 
-            // 주간 버킷 계산 (ISO 주 기준)
-            String weekKey = getWeekKey(event.getOccurredAt());
+                // 주간 버킷 계산 (ISO 주 기준)
+                String weekKey = getWeekKey(event.getOccurredAt());
 
-            if (piiInput != null) {
-                weekInputPii.computeIfAbsent(weekKey, k -> new ArrayList<>()).add(piiInput);
-            }
-            if (piiOutput != null) {
-                weekOutputPii.computeIfAbsent(weekKey, k -> new ArrayList<>()).add(piiOutput);
+                if (piiInput != null) {
+                    weekInputPii.computeIfAbsent(weekKey, k -> new ArrayList<>()).add(piiInput);
+                }
+                if (piiOutput != null) {
+                    weekOutputPii.computeIfAbsent(weekKey, k -> new ArrayList<>()).add(piiOutput);
+                }
+            } catch (Exception e) {
+                log.debug("[PII 추이] 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                    event.getEventId(), e.getMessage());
             }
         }
 
@@ -321,21 +341,31 @@ public class TelemetryService {
             // 최근 3턴 내에서 같은 intentMain 반복 체크
             for (int i = 0; i < turns.size(); i++) {
                 TelemetryEvent current = turns.get(i);
-                Map<String, Object> currentPayload = (Map<String, Object>) current.getPayload();
-                String currentIntent = (String) currentPayload.get("intentMain");
+                try {
+                    Map<String, Object> currentPayload = parsePayload(current.getPayload());
+                    String currentIntent = (String) currentPayload.get("intentMain");
 
-                if (currentIntent == null) continue;
+                    if (currentIntent == null) continue;
 
-                // 최근 3턴 내 확인
-                for (int j = Math.max(0, i - 3); j < i; j++) {
-                    TelemetryEvent prev = turns.get(j);
-                    Map<String, Object> prevPayload = (Map<String, Object>) prev.getPayload();
-                    String prevIntent = (String) prevPayload.get("intentMain");
+                    // 최근 3턴 내 확인
+                    for (int j = Math.max(0, i - 3); j < i; j++) {
+                        TelemetryEvent prev = turns.get(j);
+                        try {
+                            Map<String, Object> prevPayload = parsePayload(prev.getPayload());
+                            String prevIntent = (String) prevPayload.get("intentMain");
 
-                    if (currentIntent.equals(prevIntent)) {
-                        repeatCount++;
-                        break; // 한 턴당 한 번만 카운트
+                            if (currentIntent.equals(prevIntent)) {
+                                repeatCount++;
+                                break; // 한 턴당 한 번만 카운트
+                            }
+                        } catch (Exception e) {
+                            log.debug("[재질문률] 이전 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                                prev.getEventId(), e.getMessage());
+                        }
                     }
+                } catch (Exception e) {
+                    log.debug("[재질문률] 현재 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                        current.getEventId(), e.getMessage());
                 }
             }
         }
@@ -355,19 +385,24 @@ public class TelemetryService {
         long count2000Plus = 0;
 
         for (TelemetryEvent event : chatTurnEvents) {
-            Map<String, Object> payload = (Map<String, Object>) event.getPayload();
-            Object latencyObj = payload.get("latencyMsTotal");
-            if (latencyObj instanceof Number) {
-                long latency = ((Number) latencyObj).longValue();
-                if (latency < 500) {
-                    count0_500++;
-                } else if (latency < 1000) {
-                    count500_1000++;
-                } else if (latency < 2000) {
-                    count1000_2000++;
-                } else {
-                    count2000Plus++;
+            try {
+                Map<String, Object> payload = parsePayload(event.getPayload());
+                Object latencyObj = payload.get("latencyMsTotal");
+                if (latencyObj instanceof Number) {
+                    long latency = ((Number) latencyObj).longValue();
+                    if (latency < 500) {
+                        count0_500++;
+                    } else if (latency < 1000) {
+                        count500_1000++;
+                    } else if (latency < 2000) {
+                        count1000_2000++;
+                    } else {
+                        count2000Plus++;
+                    }
                 }
+            } catch (Exception e) {
+                log.debug("[지연시간 히스토그램] 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                    event.getEventId(), e.getMessage());
             }
         }
 
@@ -389,13 +424,18 @@ public class TelemetryService {
         Map<String, List<Long>> modelLatencies = new java.util.HashMap<>();
 
         for (TelemetryEvent event : chatTurnEvents) {
-            Map<String, Object> payload = (Map<String, Object>) event.getPayload();
-            String model = (String) payload.get("model");
-            Object latencyObj = payload.get("latencyMsLlm");
-            
-            if (model != null && latencyObj instanceof Number) {
-                modelLatencies.computeIfAbsent(model, k -> new ArrayList<>())
-                    .add(((Number) latencyObj).longValue());
+            try {
+                Map<String, Object> payload = parsePayload(event.getPayload());
+                String model = (String) payload.get("model");
+                Object latencyObj = payload.get("latencyMsLlm");
+                
+                if (model != null && latencyObj instanceof Number) {
+                    modelLatencies.computeIfAbsent(model, k -> new ArrayList<>())
+                        .add(((Number) latencyObj).longValue());
+                }
+            } catch (Exception e) {
+                log.debug("[모델별 지연시간] 이벤트 payload 파싱 실패: eventId={}, error={}", 
+                    event.getEventId(), e.getMessage());
             }
         }
 
