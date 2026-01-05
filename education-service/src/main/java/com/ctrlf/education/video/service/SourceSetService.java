@@ -479,17 +479,32 @@ public class SourceSetService {
                     callback.scriptPatch().currentScene(),
                     callback.scriptPatch().totalScenes());
 
-                // 패치 모드에서는 EducationVideo에 scriptId 연결 (첫 패치에서만)
+                // 패치 모드에서는 EducationVideo에 scriptId 연결 및 상태 업데이트
                 if (sourceSet.getVideoId() != null) {
                     final UUID finalScriptId = patchScriptId;
+                    final int currentScene = callback.scriptPatch().currentScene();
+                    final int totalScenes = callback.scriptPatch().totalScenes();
+                    final boolean isComplete = currentScene >= totalScenes;
+                    
                     videoRepository.findById(sourceSet.getVideoId()).ifPresent(video -> {
+                        // 첫 패치에서만 scriptId 설정
                         if (video.getScriptId() == null) {
                             video.setScriptId(finalScriptId);
-                            video.setStatus("SCRIPT_GENERATING");
-                            videoRepository.save(video);
                             log.info("영상에 스크립트 연결 (패치 모드): videoId={}, scriptId={}",
                                 video.getId(), finalScriptId);
                         }
+                        
+                        // 모든 씬이 완료되었는지 확인하여 상태 설정
+                        if (isComplete) {
+                            video.setStatus("SCRIPT_READY");
+                            log.info("스크립트 생성 완료 (패치 모드): videoId={}, progress={}/{}",
+                                video.getId(), currentScene, totalScenes);
+                        } else {
+                            video.setStatus("SCRIPT_GENERATING");
+                            log.debug("스크립트 생성 중 (패치 모드): videoId={}, progress={}/{}",
+                                video.getId(), currentScene, totalScenes);
+                        }
+                        videoRepository.save(video);
                     });
                 }
 
@@ -503,6 +518,7 @@ public class SourceSetService {
         }
 
         // 모드 2: 전체 스크립트 전송 (기존 로직)
+        // TODO 제거 예정
         if ("COMPLETED".equals(callback.status()) && callback.script() != null) {
             try {
                 scriptId = saveScriptFromCallback(sourceSet, callback.script());

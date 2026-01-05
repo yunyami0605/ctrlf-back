@@ -551,6 +551,7 @@ public final class VideoDtos {
     public record AuditHistoryResponse(
         @Schema(description = "영상 ID") UUID videoId,
         @Schema(description = "영상 제목") String videoTitle,
+        @Schema(description = "스크립트 ID") UUID scriptId,
         @Schema(description = "감사 이력 목록") List<AuditHistoryItem> history
     ) {}
 

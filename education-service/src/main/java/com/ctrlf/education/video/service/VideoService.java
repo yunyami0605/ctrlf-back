@@ -21,13 +21,13 @@ import com.ctrlf.education.video.dto.VideoDtos.VideoMetaUpdateRequest;
 import com.ctrlf.education.video.dto.VideoDtos.VideoRetryResponse;
 import com.ctrlf.education.video.dto.VideoDtos.AuditHistoryItem;
 import com.ctrlf.education.video.dto.VideoDtos.AuditHistoryResponse;
-import com.ctrlf.education.video.dto.VideoDtos.LastVideoProgressResponse;
 import com.ctrlf.education.video.dto.VideoDtos.ReviewDetailResponse;
 import com.ctrlf.education.video.dto.VideoDtos.ReviewQueueItem;
 import com.ctrlf.education.video.dto.VideoDtos.ReviewQueueResponse;
 import com.ctrlf.education.video.dto.VideoDtos.ReviewStatsResponse;
 import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.dto.VideoDtos.VideoStatusResponse;
+import com.ctrlf.education.video.dto.VideoDtos.LastVideoProgressResponse;
 import com.ctrlf.education.video.entity.EducationVideo;
 import com.ctrlf.education.video.entity.EducationVideoProgress;
 import com.ctrlf.education.video.entity.EducationVideoReview;
@@ -1085,6 +1085,7 @@ public class VideoService {
         return new AuditHistoryResponse(
             videoId,
             video.getTitle(),
+            video.getScriptId(),
             history
         );
     }
