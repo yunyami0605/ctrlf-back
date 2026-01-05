@@ -9,5 +9,19 @@ spec:
   ports:
     - protocol: TCP
       port: 9003       # 외부/내부에서 접속할 포트
-      targetPort: 8080 # 컨테이너 내부 포트
+      targetPort: 9003 # 컨테이너 내부 포트
   type: ClusterIP
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: infra-service
+#   namespace: ctrl
+# spec:
+#   selector:
+#     app: infra-service
+#   ports:
+#     - protocol: TCP
+#       port: 9003       # 외부/내부에서 접속할 포트
+#       targetPort: 9003 # 컨테이너 내부 포트
+#   type: ClusterIP

@@ -1,5 +1,10 @@
 {
   "realm": "ctrlf",
+  "sslRequired": "none",
+  "attributes": {
+    "checkLoginIframe": "false"
+  },
+
   "enabled": true,
   "displayName": "CTRL-F",
   "loginTheme": "ctrlf-theme",
@@ -80,8 +85,15 @@
       "protocol": "openid-connect",
       "publicClient": true,
       "standardFlowEnabled": true,
+
       "redirectUris": ["http://localhost:5173/", "http://localhost:5173/*"],
       "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "backchannel.logout.session.required": "false",
+        "display.on.consent.screen": "false",
+        "checkLoginIframe": "false"
+      },
+      "frontchannelLogout": "false",
       "protocolMappers": [
         {
           "name": "employeeNo",
@@ -1164,3 +1176,4 @@
     }
   ]
 }
+

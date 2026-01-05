@@ -17,11 +17,41 @@ spec:
         - name: chat-service
           image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/chat-service:latest
           ports:
-            - containerPort: 9001 # Spring Boot 앱 포트
+            - containerPort: 9005 # Spring Boot 앱 포트
           imagePullPolicy: Always
           env:
             - name: SPRING_PROFILES_ACTIVE
-              value: "prod" # 배포할 때
-            #  value: "dev"  #개발할 때
-      nodeSelector:
-        zone: private
+              value: "prod"
+            # DB 설정 추가
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://keycloak-db:5432/keycloak"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "keycloak"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "keycloak"
+            # 인증 서버 설정 (내부 통신 주소로 통일 및 /auth 경로 추가)
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: "https://8bang-ctrlf.com/auth/realms/ctrlf"
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+              value: "http://keycloak-service:8090/auth/realms/ctrlf/protocol/openid-connect/certs"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "update"
+            # AI 서비스 설정 추가
+            - name: AI_GATEWAY_URL
+              value: "http://ai-service:8000"
+            # 기존 시크릿 설정들
+            - name: AI_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-api-secrets
+                  key: AI_INTERNAL_TOKEN
+            - name: AI_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-api-secrets
+                  key: AI_SERVICE_TOKEN
+            - name: AI_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-api-secrets
+                  key: AI_API_TOKEN

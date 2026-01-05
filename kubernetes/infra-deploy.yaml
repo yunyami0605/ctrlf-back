@@ -15,7 +15,6 @@ spec:
     spec:
       containers:
         - name: infra-service
-          # 여기에 아까 성공한 ECR 이미지 주소를 정확히 넣으세요a
           image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/infra-service:latest
 
           ports:
@@ -24,6 +23,113 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
-      nodeSelector:
-        zone: private
-        
+
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://keycloak-db:5432/keycloak"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "keycloak"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "keycloak"
+
+            # 1. Flyway가 기존 DB를 무시하고 진행하게 설정
+#            - name: SPRING_FLYWAY_ENABLED
+#              value: "false"
+#            - name: SPRING_FLYWAY_BASELINE_ON_MIGRATE
+#              value: "false"
+
+            # 2. Hibernate는 구조 검증만 수행 (싸움 방지)
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "update"
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: "https://8bang-ctrlf.com/auth/realms/ctrlf"
+            # 3. 포트 확인 (Keycloak 내부망 접속 포트)
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+              value: "http://keycloak-service:8090/auth/realms/ctrlf/protocol/openid-connect/certs"
+
+            - name: AI_INTERNAL_TOKEN
+              valueFrom:
+                  secretKeyRef:
+                    name: ai-api-secrets
+                    key: AI_INTERNAL_TOKEN
+            - name: AI_SERVICE_TOKEN
+              valueFrom:
+                 secretKeyRef:
+                   name: ai-api-secrets
+                   key: AI_SERVICE_TOKEN
+            - name: AI_API_TOKEN
+              valueFrom:
+                 secretKeyRef:
+                   name: ai-api-secrets
+                   key: AI_API_TOKEN
+#      nodeSelector:
+#         zone: private
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: infra-service
+#   namespace: ctrl
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: infra-service
+#   template:
+#     metadata:
+#       labels:
+#         app: infra-service
+#     spec:
+#       containers:
+#         - name: infra-service
+#           image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/infra-service:latest
+
+#           ports:
+#             - containerPort: 9003 # Spring Boot 앱 포트
+#           imagePullPolicy: Always
+#           env:
+#             - name: SPRING_PROFILES_ACTIVE
+#               value: "prod"
+
+#             - name: SPRING_DATASOURCE_URL
+#               value: "jdbc:postgresql://keycloak-db:5432/keycloak"
+#             - name: SPRING_DATASOURCE_USERNAME
+#               value: "keycloak"
+#             - name: SPRING_DATASOURCE_PASSWORD
+#               value: "keycloak"
+
+#             # 1. Flyway가 기존 DB를 무시하고 진행하게 설정
+#             - name: SPRING_FLYWAY_ENABLED
+#               value: "false"
+#             - name: SPRING_FLYWAY_BASELINE_ON_MIGRATE
+#               value: "false"
+
+#             # 2. Hibernate는 구조 검증만 수행 (싸움 방지)
+#             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+#               value: "update"
+
+#             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+#               value: "https://8bang-ctrlf.com/auth/realms/ctrlf"
+#             # 3. 포트 확인 (Keycloak 내부망 접속 포트)
+#             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+#               value: "http://keycloak-service:8090/auth/realms/ctrlf/protocol/openid-connect/certs"
+
+#             - name: AI_INTERNAL_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_INTERNAL_TOKEN
+#             - name: AI_SERVICE_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_SERVICE_TOKEN
+#             - name: AI_API_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_API_TOKEN
+#       imagePullSecrets:
+#         - name: ecr-registry-helper
+# #      nodeSelector:
+# #         zone: private

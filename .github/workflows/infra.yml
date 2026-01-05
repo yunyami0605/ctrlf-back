@@ -2,7 +2,7 @@ name: CI Infrastructure Service
 
 on:
   push:
-    branches: [ "featue/infra" ]
+    branches: [ "infra" ]
     paths:
       - 'infra-service/**'
       - 'build.gradle'
@@ -21,7 +21,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # gradlew 파일에 실행 권한을 부여합니다 (리눅스 환경 필수)
+      # gradlew 파일에 실행 권한을 부여합니다 (리눅스 환경 필수).
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -52,7 +52,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
 
-      #   # 5. Kubernetes Manifest 파일 업데이트 (태그 자동 변경)
+      #   # 5. Kubernetes Manifest 파일 업데이트 (태그 자동 변경).
       # - name: Update Kubernetes resources
       #   run: |
       #     # 현재 파일 내용 확인 (디버깅용)

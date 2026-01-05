@@ -23,5 +23,82 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: "prod"
-      nodeSelector:
-        zone: private
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://keycloak-db:5432/keycloak"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "keycloak"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "keycloak"
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: "https://8bang-ctrlf.com/auth/realms/ctrlf"
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+              value: "http://keycloak-service:8090/auth/realms/ctrlf/protocol/openid-connect/certs"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "update"
+            - name: AI_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-api-secrets
+                  key: AI_INTERNAL_TOKEN
+            - name: AI_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-api-secrets
+                  key: AI_SERVICE_TOKEN
+            - name: AI_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-api-secrets
+                  key: AI_API_TOKEN
+#      nodeSelector:
+#          zone: private
+# ---
+
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: education-service
+#   namespace: ctrl
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: education-service
+#   template:
+#     metadata:
+#       labels:
+#         app: education-service
+#     spec:
+#       containers:
+#         - name: education-service
+#           # 여기에 아까 성공한 ECR 이미지 주소를 정확히 넣으세요a
+#           image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/education-service:latest
+#           ports:
+#             - containerPort: 9002 # Spring Boot 앱 포트
+#           imagePullPolicy: Always
+#           env:
+#             - name: SPRING_PROFILES_ACTIVE
+#               value: "prod"
+#             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+#               value: "https://8bang-ctrlf.com/auth/realms/ctrlf"
+#             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+#               value: "http://keycloak-service:8090/auth/realms/ctrlf/protocol/openid-connect/certs"
+#             - name: AI_INTERNAL_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_INTERNAL_TOKEN
+#             - name: AI_SERVICE_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_SERVICE_TOKEN
+#             - name: AI_API_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_API_TOKEN
+#       imagePullSecrets:
+#         - name: ecr-registry-helper
+# #      nodeSelector:
+# #          zone: private

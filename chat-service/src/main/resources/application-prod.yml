@@ -1,13 +1,13 @@
 spring:
   datasource:
-    url: jdbc:postgresql://ctrl.c7yyi6w0ch43.ap-northeast-2.rds.amazonaws.com:5432/db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://keycloak-db:5432/keycloak
+    username: keycloak
+    password: keycloak
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://10.0.147.41:8090/realms/ctrlf
+          issuer-uri: http://keycloak-service:8090/auth/realms/ctrlf
 ai:
   gateway:
-    url: http://192.168.0.112:8000
+    url: http://ai-service:8000

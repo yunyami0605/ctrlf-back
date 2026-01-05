@@ -8,6 +8,20 @@ spec:
     app: chat-service
   ports:
     - protocol: TCP
-      port: 9001      # 외부/내부에서 접속할 포트
-      targetPort: 8080 # 컨테이너 내부 포트
-  type: ClusterIP
+      port: 9005      # 외부/내부에서 접속할 포트
+      targetPort: 9005 # 컨테이너 내부 포트
+  type: NodePort
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: chat-service
+#   namespace: ctrl
+# spec:
+#   selector:
+#     app: chat-service
+#   ports:
+#     - protocol: TCP
+#       port: 9005      # 외부/내부에서 접속할 포트
+#       targetPort: 9005 # 컨테이너 내부 포트
+#   type: NodePort

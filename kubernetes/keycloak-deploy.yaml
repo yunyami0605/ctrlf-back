@@ -1,0 +1,195 @@
+# 1. Keycloak DB 서비스
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-db
+  namespace: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak-db # [여기] Service가 찾아올 이름
+  template:
+    metadata:
+      labels:
+        app: keycloak-db # [여기] Pod에 붙는 이름
+    spec:
+      containers:
+      - name: postgres
+        image: pgvector/pgvector:pg16
+        env:
+        - name: POSTGRES_DB
+          value: "keycloak"
+        - name: POSTGRES_USER
+          value: "keycloak"
+        - name: POSTGRES_PASSWORD
+          value: "keycloak"
+---
+# 2. Keycloak 서버 서비스 부분 수정
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-keycloak
+  namespace: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak   # [수정] keycloak-service.yaml의 selector와 일치시킴
+  template:
+    metadata:
+      labels:
+        app: keycloak # [수정] keycloak-service.yaml의 selector와 일치시킴
+    spec:
+      containers:
+      - name: keycloak
+        image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/keycloak:latest
+        ports:
+          - containerPort: 8090 # [수정] 서비스의 targetPort인 8080과 일치시킴
+        env:
+        - name: KC_DB
+          value: "postgres"
+        - name: KC_DB_URL
+          value: "jdbc:postgresql://keycloak-db:5432/keycloak"
+        # [중요] DB Deployment에서 설정한 유저/암호와 일치시켜야 함
+        - name: KC_DB_USERNAME
+          value: "keycloak" # [수정] postgres -> keycloak
+        - name: KC_DB_PASSWORD
+          value: "keycloak" # [수정] postgres -> keycloak
+        - name: KEYCLOAK_ADMIN
+          value: "admin"
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          value: "admin"
+        # Dockerfile에서 start-dev를 썼으므로 아래 변수 추가 권장
+        - name: KC_HTTP_ENABLED
+          value: "true"
+        - name: KC_ADMIN_HTTP_ENABLED
+          value: "true"
+        - name: KC_HOSTNAME
+          value: "8bang-ctrlf.com"
+        - name: KC_HOSTNAME_STRICT
+          value: "false"
+        - name: KC_PROXY
+          value: "edge"
+        - name: KC_HOSTNAME_STRICT_HTTPS
+          value: "false"
+        - name: KC_HOSTNAME_ADMIN_STRICT_HTTPS
+          value: "false"
+        - name: KC_HTTP_RELATIVE_PATH
+          value: "/auth"
+        - name: KC_HTTP_PORT
+          value: "8090"
+        - name: AI_INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ai-api-secrets
+              key: AI_INTERNAL_TOKEN
+        - name: AI_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ai-api-secrets
+              key: AI_SERVICE_TOKEN
+        - name: AI_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ai-api-secrets
+              key: AI_API_TOKEN
+# ---
+# # 1. Keycloak DB 서비스1
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: keycloak-db
+#   namespace: ctrl
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: keycloak-db # [여기] Service가 찾아올 이름
+#   template:
+#     metadata:
+#       labels:
+#         app: keycloak-db # [여기] Pod에 붙는 이름
+#     spec:
+#       containers:
+#         - name: postgres
+#           image: postgres:16-alpine
+#           env:
+#             - name: POSTGRES_DB
+#               value: "keycloak"
+#             - name: POSTGRES_USER
+#               value: "keycloak"
+#             - name: POSTGRES_PASSWORD
+#               value: "keycloak"
+# ---
+# # 2. Keycloak 서버 서비스 부분 수정
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: platform-keycloak
+#   namespace: ctrl
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: keycloak   # [수정] keycloak-service.yaml의 selector와 일치시킴
+#   template:
+#     metadata:
+#       labels:
+#         app: keycloak # [수정] keycloak-service.yaml의 selector와 일치시킴
+#     spec:
+#       containers:
+#         - name: keycloak
+#           image: 858507113889.dkr.ecr.ap-northeast-2.amazonaws.com/argocd/keycloak:latest
+#           ports:
+#             - containerPort: 8090 # [수정] 서비스의 targetPort인 8080과 일치시킴
+#           env:
+#             - name: KC_DB
+#               value: "postgres"
+#             - name: KC_DB_URL
+#               value: "jdbc:postgresql://keycloak-db:5432/keycloak"
+#             # [중요] DB Deployment에서 설정한 유저/암호와 일치시켜야 함
+#             - name: KC_DB_USERNAME
+#               value: "keycloak" # [수정] postgres -> keycloak
+#             - name: KC_DB_PASSWORD
+#               value: "keycloak" # [수정] postgres -> keycloak
+#             - name: KEYCLOAK_ADMIN
+#               value: "admin"
+#             - name: KEYCLOAK_ADMIN_PASSWORD
+#               value: "admin"
+#             # Dockerfile에서 start-dev를 썼으므로 아래 변수 추가 권장
+#             - name: KC_HTTP_ENABLED
+#               value: "true"
+#             - name: KC_ADMIN_HTTP_ENABLED
+#               value: "true"
+#             - name: KC_HOSTNAME
+#               value: "8bang-ctrlf.com"
+#             - name: KC_HOSTNAME_STRICT
+#               value: "false"
+#             - name: KC_PROXY
+#               value: "edge"
+#             - name: KC_HOSTNAME_STRICT_HTTPS
+#               value: "false"
+#             - name: KC_HOSTNAME_ADMIN_STRICT_HTTPS
+#               value: "false"
+#             - name: KC_HTTP_RELATIVE_PATH
+#               value: "/auth"
+#             - name: KC_HTTP_PORT
+#               value: "8090"
+#             - name: AI_INTERNAL_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_INTERNAL_TOKEN
+#             - name: AI_SERVICE_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_SERVICE_TOKEN
+#             - name: AI_API_TOKEN
+#               valueFrom:
+#                 secretKeyRef:
+#                   name: ai-api-secrets
+#                   key: AI_API_TOKEN
+#       imagePullSecrets:
+#       - name: ecr-registry-helper

@@ -2,7 +2,7 @@ name: CI Chat Service
 
 on:
   push:
-    branches: [ "featue/infra" ]
+    branches: [ "infra" ]
     paths:
       - 'chat-service/**'
       - 'build.gradle'
@@ -21,7 +21,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # gradlew 파일에 실행 권한을 부여합니다 (리눅스 환경 필수)
+      # gradlew 파일에 실행 권한을 부여합니다 (리눅스 환경 필수).
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
