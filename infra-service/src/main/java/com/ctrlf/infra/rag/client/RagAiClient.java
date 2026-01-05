@@ -71,7 +71,7 @@ public class RagAiClient {
 
     /**
      * 사규 Ingest 요청을 AI 서버로 전송합니다.
-     * 
+     *
      * Backend → AI 서버로 사규 문서 처리 요청을 보냅니다.
      * AI 서버는 처리 완료 후 PATCH /internal/rag/documents/{ragDocumentPk}/status 로 콜백을 보냅니다.
      *
@@ -80,6 +80,7 @@ public class RagAiClient {
      * @param version 문서 버전
      * @param sourceUrl 원본 파일 URL (S3 또는 presigned URL)
      * @param domain 문서 도메인 (기본값: "POLICY")
+     * @param department 부서 범위 (전체 부서, 총무팀, 기획팀, 마케팅팀, 인사팀, 재무팀, 개발팀, 영업팀, 법무팀)
      * @return AiResponse(accepted / jobId / status)
      * @throws Exception 네트워크/IO 오류 등
      */
@@ -88,22 +89,25 @@ public class RagAiClient {
         String documentId,
         Integer version,
         String sourceUrl,
-        String domain
+        String domain,
+        String department
     ) throws Exception {
         // requestId와 traceId 생성 (멱등성 및 로그 상관관계)
         UUID requestId = UUID.randomUUID();
         String traceId = "trace-" + ragDocumentPk.toString().substring(0, 8);
-        
-        Map<String, Object> requestBody = Map.of(
-            "ragDocumentPk", ragDocumentPk.toString(),
-            "documentId", documentId,
-            "version", version,
-            "sourceUrl", sourceUrl,
-            "domain", domain != null && !domain.isBlank() ? domain : "POLICY",
-            "requestId", requestId.toString(),
-            "traceId", traceId
-        );
-        
+
+        java.util.HashMap<String, Object> requestBody = new java.util.HashMap<>();
+        requestBody.put("ragDocumentPk", ragDocumentPk.toString());
+        requestBody.put("documentId", documentId);
+        requestBody.put("version", version);
+        requestBody.put("sourceUrl", sourceUrl);
+        requestBody.put("domain", domain != null && !domain.isBlank() ? domain : "POLICY");
+        requestBody.put("requestId", requestId.toString());
+        requestBody.put("traceId", traceId);
+        if (department != null && !department.isBlank()) {
+            requestBody.put("department", department);
+        }
+
         try {
             AiResponse response = restClient.post()
                 .uri("/internal/ai/rag-documents/ingest")
@@ -111,7 +115,7 @@ public class RagAiClient {
                 .body(requestBody)
                 .retrieve()
                 .body(AiResponse.class);
-            
+
             if (response != null) {
                 return response;
             } else {
@@ -119,7 +123,7 @@ public class RagAiClient {
                 return new AiResponse(true, ragDocumentPk.toString(), documentId, version, "PROCESSING", requestId.toString(), traceId);
             }
         } catch (RestClientException e) {
-            log.warn("AI ingest call failed: ragDocumentPk={}, documentId={}, error={}", 
+            log.warn("AI ingest call failed: ragDocumentPk={}, documentId={}, error={}",
                 ragDocumentPk, documentId, e.getMessage());
             throw new RuntimeException("AI ingest call failed: " + e.getMessage(), e);
         }

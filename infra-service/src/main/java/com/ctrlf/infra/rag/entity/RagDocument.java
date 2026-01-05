@@ -107,5 +107,9 @@ public class RagDocument {
     /** 반려 시각 */
     @Column(name = "rejected_at")
     private Instant rejectedAt;
+
+    /** 부서 범위 (전체 부서, 총무팀, 기획팀, 마케팅팀, 인사팀, 재무팀, 개발팀, 영업팀, 법무팀) */
+    @Column(name = "department", length = 32, columnDefinition = "varchar(32)")
+    private String department;
 }
 

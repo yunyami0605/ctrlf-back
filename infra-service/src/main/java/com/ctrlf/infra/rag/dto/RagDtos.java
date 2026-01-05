@@ -317,6 +317,8 @@ public final class RagDtos {
         // 반려 관련 필드
         private String rejectReason;
         private String rejectedAt;
+        // 부서 범위
+        private String department;
     }
 
     /**
@@ -342,6 +344,9 @@ public final class RagDtos {
 
         @Schema(example = "초기 사규 등록")
         private String changeSummary;
+
+        @Schema(example = "개발팀", description = "부서 범위 (전체 부서, 총무팀, 기획팀, 마케팅팀, 인사팀, 재무팀, 개발팀, 영업팀, 법무팀)")
+        private String department;
     }
 
     /**
@@ -376,6 +381,9 @@ public final class RagDtos {
 
         @Schema(example = "2", description = "버전 번호 (옵션, 없으면 자동 증가)")
         private Integer version;
+
+        @Schema(example = "개발팀", description = "부서 범위 (전체 부서, 총무팀, 기획팀, 마케팅팀, 인사팀, 재무팀, 개발팀, 영업팀, 법무팀)")
+        private String department;
     }
 
     /**
