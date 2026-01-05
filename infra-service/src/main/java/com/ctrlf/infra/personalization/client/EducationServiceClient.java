@@ -146,4 +146,137 @@ public class EducationServiceClient {
         private Integer progress_percent;
         private Integer duration;
     }
+
+    // ---------- Q2, Q8용: 토픽별 교육 이수 현황 ----------
+
+    /**
+     * 사용자의 특정 토픽 교육 이수 현황을 조회합니다 (Q2, Q8용).
+     *
+     * @param userUuid 사용자 UUID
+     * @param topic 교육 토픽 (WORKPLACE_BULLYING, SEXUAL_HARASSMENT_PREVENTION 등)
+     * @return 토픽별 교육 이수 현황
+     */
+    public TopicProgressResponse getProgressByTopic(UUID userUuid, String topic) {
+        try {
+            return restClient.get()
+                .uri("/internal/education/progress-by-topic?topic=" + topic)
+                .header("X-User-Id", userUuid.toString())
+                .retrieve()
+                .body(TopicProgressResponse.class);
+        } catch (RestClientException e) {
+            log.warn("Failed to get progress-by-topic: userUuid={}, topic={}, error={}", userUuid, topic, e.getMessage());
+            return null;
+        }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class TopicProgressResponse {
+        private String topic;
+        private String topicLabel;
+        private int educationCount;
+        private int completedCount;
+        private boolean isCompleted;
+        private List<TopicEducationItem> items;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class TopicEducationItem {
+        private String educationId;
+        private String title;
+        private boolean isCompleted;
+        private String completedAt;
+        private Integer progressPercent;
+        private String deadline;
+    }
+
+    // ---------- Q19용: 토픽별 교육 마감일 ----------
+
+    /**
+     * 특정 토픽 교육의 마감일을 조회합니다 (Q19용).
+     *
+     * @param userUuid 사용자 UUID
+     * @param topic 교육 토픽
+     * @return 토픽별 마감일 정보
+     */
+    public TopicDeadlineResponse getDeadlineByTopic(UUID userUuid, String topic) {
+        try {
+            return restClient.get()
+                .uri("/internal/education/deadline-by-topic?topic=" + topic)
+                .header("X-User-Id", userUuid.toString())
+                .retrieve()
+                .body(TopicDeadlineResponse.class);
+        } catch (RestClientException e) {
+            log.warn("Failed to get deadline-by-topic: userUuid={}, topic={}, error={}", userUuid, topic, e.getMessage());
+            return null;
+        }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class TopicDeadlineResponse {
+        private String topic;
+        private String topicLabel;
+        private boolean hasDeadline;
+        private String nearestDeadline;
+        private List<TopicDeadlineItem> items;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class TopicDeadlineItem {
+        private String educationId;
+        private String title;
+        private String deadline;
+        private Boolean isCompleted;
+    }
+
+    // ---------- Q7, Q18용: 토픽별 퀴즈 점수 ----------
+
+    /**
+     * 사용자의 특정 토픽 퀴즈 점수를 조회합니다 (Q7, Q18용).
+     *
+     * @param userUuid 사용자 UUID
+     * @param topic 교육 토픽
+     * @return 토픽별 퀴즈 점수 정보
+     */
+    public TopicScoreResponse getScoreByTopic(UUID userUuid, String topic) {
+        try {
+            return restClient.get()
+                .uri("/internal/quiz/score-by-topic?topic=" + topic)
+                .header("X-User-Id", userUuid.toString())
+                .retrieve()
+                .body(TopicScoreResponse.class);
+        } catch (RestClientException e) {
+            log.warn("Failed to get score-by-topic: userUuid={}, topic={}, error={}", userUuid, topic, e.getMessage());
+            return null;
+        }
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class TopicScoreResponse {
+        private String topic;
+        private String topicLabel;
+        private int educationCount;
+        private int attemptedCount;
+        private int passedCount;
+        private boolean hasAttempt;
+        private Double averageScore;
+        private List<TopicScoreItem> items;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class TopicScoreItem {
+        private String educationId;
+        private String title;
+        private boolean hasAttempt;
+        private Integer bestScore;
+        private Boolean passed;
+        private Integer attemptCount;
+        private Integer passScore;
+        private String lastAttemptAt;
+    }
 }

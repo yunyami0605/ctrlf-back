@@ -31,6 +31,13 @@ public final class PersonalizationDtos {
 
         @Schema(example = "D001", description = "부서 비교 대상 ID (Q5에서만 사용)", nullable = true)
         private String target_dept_id;
+
+        @Schema(example = "PERSONAL_INFO_PROTECTION",
+            description = "교육 토픽 (Q2, Q7, Q8, Q18, Q19에서 사용). " +
+                "WORKPLACE_BULLYING(직장내괴롭힘), SEXUAL_HARASSMENT_PREVENTION(성희롱예방), " +
+                "PERSONAL_INFO_PROTECTION(개인정보보호), DISABILITY_AWARENESS(장애인인식개선), JOB_DUTY(직무교육)",
+            nullable = true)
+        private String topic;
     }
 
     // ---------- Resolve Response ----------

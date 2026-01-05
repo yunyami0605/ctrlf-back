@@ -6,6 +6,12 @@ import com.ctrlf.infra.personalization.client.EducationServiceClient;
 import com.ctrlf.infra.personalization.client.EducationServiceClient.DepartmentStatsItem;
 import com.ctrlf.infra.personalization.client.EducationServiceClient.LastVideoProgressItem;
 import com.ctrlf.infra.personalization.client.EducationServiceClient.MyAttemptItem;
+import com.ctrlf.infra.personalization.client.EducationServiceClient.TopicProgressResponse;
+import com.ctrlf.infra.personalization.client.EducationServiceClient.TopicEducationItem;
+import com.ctrlf.infra.personalization.client.EducationServiceClient.TopicScoreResponse;
+import com.ctrlf.infra.personalization.client.EducationServiceClient.TopicScoreItem;
+import com.ctrlf.infra.personalization.client.EducationServiceClient.TopicDeadlineResponse;
+import com.ctrlf.infra.personalization.client.EducationServiceClient.TopicDeadlineItem;
 import com.ctrlf.infra.personalization.dto.PersonalizationDtos;
 import com.ctrlf.infra.personalization.util.PeriodCalculator;
 import java.time.Instant;
@@ -63,13 +69,18 @@ public class PersonalizationService {
             // 인텐트별 핸들러 호출
             ResolveResponse response = switch (subIntentId) {
                 case "Q1" -> handleQ1(userId, periodStart, periodEnd, updatedAt);
+                case "Q2" -> handleQ2(userId, periodStart, periodEnd, updatedAt, request.getTopic());
                 case "Q3" -> handleQ3(userId, periodStart, periodEnd, updatedAt);
                 case "Q4" -> handleQ4(userId, periodStart, periodEnd, updatedAt);
                 case "Q5" -> handleQ5(userId, periodStart, periodEnd, updatedAt, targetDeptId);
                 case "Q6" -> handleQ6(userId, periodStart, periodEnd, updatedAt);
+                case "Q7" -> handleQ7(userId, periodStart, periodEnd, updatedAt, request.getTopic());
+                case "Q8" -> handleQ8(userId, periodStart, periodEnd, updatedAt, request.getTopic());
                 case "Q9" -> handleQ9(userId, periodStart, periodEnd, updatedAt);
                 case "Q11" -> handleQ11(userId, periodStart, periodEnd, updatedAt);
                 case "Q14" -> handleQ14(userId, periodStart, periodEnd, updatedAt);
+                case "Q18" -> handleQ18(userId, periodStart, periodEnd, updatedAt, request.getTopic());
+                case "Q19" -> handleQ19(userId, periodStart, periodEnd, updatedAt, request.getTopic());
                 case "Q20" -> handleQ20(userId, periodStart, periodEnd, updatedAt);
                 default -> createErrorResponse(subIntentId, periodStart, periodEnd, updatedAt,
                     "NOT_IMPLEMENTED", "현재 데모 범위에서는 지원하지 않는 질문이에요.");
@@ -104,6 +115,62 @@ public class PersonalizationService {
             Map.of(),
             null
         );
+    }
+
+    // ---------- Q2: 특정 토픽 교육 이수 여부 ----------
+    private ResolveResponse handleQ2(String userId, String periodStart, String periodEnd, String updatedAt, String topic) {
+        log.info("Q2 handler: userId={}, topic={}", userId, topic);
+
+        if (topic == null || topic.isBlank()) {
+            return createErrorResponse("Q2", periodStart, periodEnd, updatedAt,
+                "MISSING_TOPIC", "조회할 교육 토픽을 지정해주세요.");
+        }
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            TopicProgressResponse progress = educationServiceClient.getProgressByTopic(userUuid, topic);
+
+            if (progress == null) {
+                return createErrorResponse("Q2", periodStart, periodEnd, updatedAt,
+                    "SERVICE_ERROR", "교육 정보를 조회할 수 없어요.");
+            }
+
+            // 교육 목록을 items로 변환
+            List<Object> items = new ArrayList<>();
+            if (progress.getItems() != null) {
+                for (TopicEducationItem item : progress.getItems()) {
+                    items.add(Map.of(
+                        "education_id", item.getEducationId(),
+                        "title", item.getTitle(),
+                        "is_completed", item.isCompleted(),
+                        "completed_at", item.getCompletedAt() != null ? item.getCompletedAt() : "",
+                        "progress_percent", item.getProgressPercent() != null ? item.getProgressPercent() : 0
+                    ));
+                }
+            }
+
+            return new ResolveResponse(
+                "Q2", periodStart, periodEnd, updatedAt,
+                Map.of(
+                    "topic", topic,
+                    "topic_label", progress.getTopicLabel() != null ? progress.getTopicLabel() : topic,
+                    "education_count", progress.getEducationCount(),
+                    "completed_count", progress.getCompletedCount(),
+                    "is_completed", progress.isCompleted()
+                ),
+                items,
+                Map.of(),
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q2", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q2 handler: userId={}, topic={}", userId, topic, e);
+            return createErrorResponse("Q2", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
+        }
     }
 
     // ---------- Q3: 이번 달 데드라인 필수 교육 ----------
@@ -313,6 +380,136 @@ public class PersonalizationService {
         }
     }
 
+    // ---------- Q7: 특정 토픽 퀴즈 점수 조회 ----------
+    private ResolveResponse handleQ7(String userId, String periodStart, String periodEnd, String updatedAt, String topic) {
+        log.info("Q7 handler: userId={}, topic={}", userId, topic);
+
+        if (topic == null || topic.isBlank()) {
+            return createErrorResponse("Q7", periodStart, periodEnd, updatedAt,
+                "MISSING_TOPIC", "조회할 교육 토픽을 지정해주세요.");
+        }
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            TopicScoreResponse score = educationServiceClient.getScoreByTopic(userUuid, topic);
+
+            if (score == null) {
+                return createErrorResponse("Q7", periodStart, periodEnd, updatedAt,
+                    "SERVICE_ERROR", "퀴즈 정보를 조회할 수 없어요.");
+            }
+
+            if (!score.isHasAttempt()) {
+                return new ResolveResponse(
+                    "Q7", periodStart, periodEnd, updatedAt,
+                    Map.of(
+                        "topic", topic,
+                        "topic_label", score.getTopicLabel() != null ? score.getTopicLabel() : topic,
+                        "has_attempt", false,
+                        "education_count", score.getEducationCount()
+                    ),
+                    List.of(),
+                    Map.of(),
+                    new ErrorInfo("NOT_FOUND", "해당 토픽의 퀴즈 응시 기록이 없어요.")
+                );
+            }
+
+            // 퀴즈 목록을 items로 변환
+            List<Object> items = new ArrayList<>();
+            if (score.getItems() != null) {
+                for (TopicScoreItem item : score.getItems()) {
+                    Map<String, Object> itemMap = new HashMap<>();
+                    itemMap.put("education_id", item.getEducationId());
+                    itemMap.put("title", item.getTitle());
+                    itemMap.put("has_attempt", item.isHasAttempt());
+                    itemMap.put("best_score", item.getBestScore() != null ? item.getBestScore() : 0);
+                    itemMap.put("passed", item.getPassed() != null ? item.getPassed() : false);
+                    itemMap.put("attempt_count", item.getAttemptCount() != null ? item.getAttemptCount() : 0);
+                    itemMap.put("pass_score", item.getPassScore() != null ? item.getPassScore() : 0);
+                    items.add(itemMap);
+                }
+            }
+
+            return new ResolveResponse(
+                "Q7", periodStart, periodEnd, updatedAt,
+                Map.of(
+                    "topic", topic,
+                    "topic_label", score.getTopicLabel() != null ? score.getTopicLabel() : topic,
+                    "has_attempt", true,
+                    "education_count", score.getEducationCount(),
+                    "attempted_count", score.getAttemptedCount(),
+                    "passed_count", score.getPassedCount(),
+                    "average_score", score.getAverageScore() != null ? score.getAverageScore() : 0.0
+                ),
+                items,
+                Map.of(),
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q7", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q7 handler: userId={}, topic={}", userId, topic, e);
+            return createErrorResponse("Q7", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
+        }
+    }
+
+    // ---------- Q8: 특정 토픽 교육 시청 완료 여부 ----------
+    private ResolveResponse handleQ8(String userId, String periodStart, String periodEnd, String updatedAt, String topic) {
+        log.info("Q8 handler: userId={}, topic={}", userId, topic);
+
+        if (topic == null || topic.isBlank()) {
+            return createErrorResponse("Q8", periodStart, periodEnd, updatedAt,
+                "MISSING_TOPIC", "조회할 교육 토픽을 지정해주세요.");
+        }
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            TopicProgressResponse progress = educationServiceClient.getProgressByTopic(userUuid, topic);
+
+            if (progress == null) {
+                return createErrorResponse("Q8", periodStart, periodEnd, updatedAt,
+                    "SERVICE_ERROR", "교육 정보를 조회할 수 없어요.");
+            }
+
+            // 교육 목록을 items로 변환 (Q8은 시청 완료 여부에 집중)
+            List<Object> items = new ArrayList<>();
+            if (progress.getItems() != null) {
+                for (TopicEducationItem item : progress.getItems()) {
+                    items.add(Map.of(
+                        "education_id", item.getEducationId(),
+                        "title", item.getTitle(),
+                        "is_completed", item.isCompleted(),
+                        "progress_percent", item.getProgressPercent() != null ? item.getProgressPercent() : 0
+                    ));
+                }
+            }
+
+            return new ResolveResponse(
+                "Q8", periodStart, periodEnd, updatedAt,
+                Map.of(
+                    "topic", topic,
+                    "topic_label", progress.getTopicLabel() != null ? progress.getTopicLabel() : topic,
+                    "education_count", progress.getEducationCount(),
+                    "completed_count", progress.getCompletedCount(),
+                    "is_all_completed", progress.isCompleted()
+                ),
+                items,
+                Map.of(),
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q8", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q8 handler: userId={}, topic={}", userId, topic, e);
+            return createErrorResponse("Q8", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
+        }
+    }
+
     // ---------- Q9: 이번 주 교육/퀴즈 할 일 ----------
     private ResolveResponse handleQ9(String userId, String periodStart, String periodEnd, String updatedAt) {
         // TODO: education-service와 quiz-service에서 이번 주 할 일 조회
@@ -370,6 +567,150 @@ public class PersonalizationService {
             Map.of(),
             null
         );
+    }
+
+    // ---------- Q18: 보안교육(특정 토픽) 완료 여부 ----------
+    private ResolveResponse handleQ18(String userId, String periodStart, String periodEnd, String updatedAt, String topic) {
+        log.info("Q18 handler: userId={}, topic={}", userId, topic);
+
+        // Q18은 보안교육(정보보호) 완료 여부 - 기본값은 PERSONAL_INFO_PROTECTION
+        String effectiveTopic = (topic != null && !topic.isBlank()) ? topic : "PERSONAL_INFO_PROTECTION";
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+
+            // 교육 이수 현황 조회
+            TopicProgressResponse progress = educationServiceClient.getProgressByTopic(userUuid, effectiveTopic);
+            // 퀴즈 점수 조회
+            TopicScoreResponse score = educationServiceClient.getScoreByTopic(userUuid, effectiveTopic);
+
+            if (progress == null) {
+                return createErrorResponse("Q18", periodStart, periodEnd, updatedAt,
+                    "SERVICE_ERROR", "교육 정보를 조회할 수 없어요.");
+            }
+
+            // Q18은 교육 시청 + 퀴즈 통과 여부를 종합
+            boolean videoCompleted = progress.isCompleted();
+            boolean quizPassed = score != null && score.getPassedCount() > 0 &&
+                score.getPassedCount() == score.getEducationCount();
+
+            boolean isFullyCompleted = videoCompleted && quizPassed;
+
+            // 상세 정보 구성
+            List<Object> items = new ArrayList<>();
+            if (progress.getItems() != null) {
+                for (TopicEducationItem item : progress.getItems()) {
+                    Map<String, Object> itemMap = new HashMap<>();
+                    itemMap.put("education_id", item.getEducationId());
+                    itemMap.put("title", item.getTitle());
+                    itemMap.put("video_completed", item.isCompleted());
+                    itemMap.put("progress_percent", item.getProgressPercent() != null ? item.getProgressPercent() : 0);
+
+                    // 해당 교육의 퀴즈 점수 찾기
+                    if (score != null && score.getItems() != null) {
+                        for (TopicScoreItem scoreItem : score.getItems()) {
+                            if (scoreItem.getEducationId().equals(item.getEducationId())) {
+                                itemMap.put("quiz_score", scoreItem.getBestScore() != null ? scoreItem.getBestScore() : 0);
+                                itemMap.put("quiz_passed", scoreItem.getPassed() != null ? scoreItem.getPassed() : false);
+                                break;
+                            }
+                        }
+                    }
+                    items.add(itemMap);
+                }
+            }
+
+            return new ResolveResponse(
+                "Q18", periodStart, periodEnd, updatedAt,
+                Map.of(
+                    "topic", effectiveTopic,
+                    "topic_label", progress.getTopicLabel() != null ? progress.getTopicLabel() : effectiveTopic,
+                    "education_count", progress.getEducationCount(),
+                    "video_completed_count", progress.getCompletedCount(),
+                    "quiz_passed_count", score != null ? score.getPassedCount() : 0,
+                    "is_fully_completed", isFullyCompleted
+                ),
+                items,
+                Map.of(),
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q18", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q18 handler: userId={}, topic={}", userId, topic, e);
+            return createErrorResponse("Q18", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
+        }
+    }
+
+    // ---------- Q19: 특정 토픽 교육 마감일 조회 ----------
+    private ResolveResponse handleQ19(String userId, String periodStart, String periodEnd, String updatedAt, String topic) {
+        log.info("Q19 handler: userId={}, topic={}", userId, topic);
+
+        if (topic == null || topic.isBlank()) {
+            return createErrorResponse("Q19", periodStart, periodEnd, updatedAt,
+                "MISSING_TOPIC", "조회할 교육 토픽을 지정해주세요.");
+        }
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            TopicDeadlineResponse deadline = educationServiceClient.getDeadlineByTopic(userUuid, topic);
+
+            if (deadline == null) {
+                return createErrorResponse("Q19", periodStart, periodEnd, updatedAt,
+                    "SERVICE_ERROR", "교육 정보를 조회할 수 없어요.");
+            }
+
+            if (!deadline.isHasDeadline()) {
+                return new ResolveResponse(
+                    "Q19", periodStart, periodEnd, updatedAt,
+                    Map.of(
+                        "topic", topic,
+                        "topic_label", deadline.getTopicLabel() != null ? deadline.getTopicLabel() : topic,
+                        "has_deadline", false
+                    ),
+                    List.of(),
+                    Map.of(),
+                    new ErrorInfo("NOT_FOUND", "해당 토픽의 마감일이 설정된 교육이 없어요.")
+                );
+            }
+
+            // 마감일 목록을 items로 변환
+            List<Object> items = new ArrayList<>();
+            if (deadline.getItems() != null) {
+                for (TopicDeadlineItem item : deadline.getItems()) {
+                    items.add(Map.of(
+                        "education_id", item.getEducationId(),
+                        "title", item.getTitle(),
+                        "deadline", item.getDeadline(),
+                        "is_completed", item.getIsCompleted() != null ? item.getIsCompleted() : false
+                    ));
+                }
+            }
+
+            return new ResolveResponse(
+                "Q19", periodStart, periodEnd, updatedAt,
+                Map.of(
+                    "topic", topic,
+                    "topic_label", deadline.getTopicLabel() != null ? deadline.getTopicLabel() : topic,
+                    "has_deadline", true,
+                    "nearest_deadline", deadline.getNearestDeadline() != null ? deadline.getNearestDeadline() : ""
+                ),
+                items,
+                Map.of(),
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q19", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q19 handler: userId={}, topic={}", userId, topic, e);
+            return createErrorResponse("Q19", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
+        }
     }
 
     // ---------- Q20: 올해 HR 할 일 (미완료) ----------
