@@ -17,6 +17,9 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql:10.10.0'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
     implementation 'software.amazon.awssdk:s3:2.25.57'
+    
+    // .env 파일 수동 로드용
+    implementation 'io.github.cdimascio:java-dotenv:5.2.2'
 
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     implementation 'org.springframework.boot:spring-boot-devtools:3.3.3'

@@ -47,7 +47,7 @@ app:
       enabled: true
   internal:
     # AI 서버 내부 API 인증 토큰 (AI의 BACKEND_INTERNAL_TOKEN과 동일하게 설정)
-    token: ${INTERNAL_API_TOKEN:dev-internal-token}
+    token: ${AI_INTERNAL_TOKEN:dev-internal-token}
   education-service:
     base-url: http://localhost:9002
     timeout-seconds: 10

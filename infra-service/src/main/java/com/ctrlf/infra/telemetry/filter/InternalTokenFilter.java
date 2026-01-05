@@ -50,6 +50,11 @@ public class InternalTokenFilter extends OncePerRequestFilter {
         String providedToken = request.getHeader(INTERNAL_TOKEN_HEADER);
         String expectedToken = tokenProperties.getToken();
 
+        // 디버깅: 토큰 값 로깅 (민감 정보이므로 마스킹)
+        log.debug("Token validation - Expected: {}, Provided: {}", 
+            expectedToken != null ? maskToken(expectedToken) : "null",
+            providedToken != null ? maskToken(providedToken) : "null");
+
         // 토큰 검증
         if (expectedToken == null || expectedToken.isBlank()) {
             // 토큰이 설정되지 않은 경우 경고만 출력하고 통과 (개발 환경 허용)
@@ -65,7 +70,8 @@ public class InternalTokenFilter extends OncePerRequestFilter {
         }
 
         if (!expectedToken.equals(providedToken)) {
-            log.warn("Invalid X-Internal-Token for path: {}", path);
+            log.warn("Invalid X-Internal-Token for path: {} - Expected length: {}, Provided length: {}", 
+                path, expectedToken.length(), providedToken != null ? providedToken.length() : 0);
             sendUnauthorizedResponse(response, "Invalid X-Internal-Token");
             return;
         }
@@ -84,5 +90,15 @@ public class InternalTokenFilter extends OncePerRequestFilter {
             "{\"errorCode\":\"UNAUTHORIZED\",\"message\":\"%s\"}",
             message
         ));
+    }
+
+    /**
+     * 토큰 마스킹 (디버깅용)
+     */
+    private String maskToken(String token) {
+        if (token == null || token.length() <= 8) {
+            return "***";
+        }
+        return token.substring(0, 4) + "***" + token.substring(token.length() - 4);
     }
 }
