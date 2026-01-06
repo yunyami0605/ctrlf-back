@@ -372,6 +372,8 @@ user → assistant → user → assistant → ...
 | POST | `/ai/chat/messages` | 일반 채팅 응답 |
 | POST | `/ai/chat/stream` | 스트리밍 채팅 응답 (NDJSON) |
 
+**참고**: `/ai/search` 엔드포인트는 더 이상 사용되지 않습니다. (삭제됨)
+
 ---
 
 ## 데이터 흐름 다이어그램

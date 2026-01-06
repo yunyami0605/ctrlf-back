@@ -592,6 +592,21 @@ RAG, LLM, Incident, FAQ, 기타 라우트별 질문 비율을 조회합니다.
 
 ---
 
+## 내부 API (Chat Service → AI Server)
+
+Chat Service는 AI Server와 통신하기 위해 다음 내부 API를 사용합니다:
+
+| 메서드 | 엔드포인트 | 설명 |
+|--------|-----------|------|
+| POST | `/ai/chat/messages` | 일반 채팅 응답 요청 |
+| POST | `/ai/chat/stream` | 스트리밍 채팅 응답 요청 (NDJSON) |
+
+**참고**: 
+- `/ai/search` 엔드포인트는 더 이상 사용되지 않습니다. (삭제됨)
+- RAG 검색은 AI Server 내부에서 자동으로 처리됩니다.
+
+---
+
 ## 참고사항
 
 - 모든 UUID는 표준 UUID 형식입니다.
