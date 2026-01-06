@@ -58,7 +58,9 @@ public class FaqServiceImpl implements FaqService {
     @Override
     @Transactional(readOnly = true)
     public List<FaqResponse> getAll() {
-        return faqRepository.findByIsActiveTrueOrderByPriorityAsc()
+        // 모든 활성화된 FAQ 반환 (초기 데이터 20개 + 관리자 승인 FAQ 모두 포함)
+        // 우선순위 순으로 정렬, 동일 우선순위는 publishedAt DESC, createdAt ASC
+        return faqRepository.findAllActiveOrderedByPriorityAndPublishedAt()
             .stream()
             .map(FaqResponse::from)
             .toList();

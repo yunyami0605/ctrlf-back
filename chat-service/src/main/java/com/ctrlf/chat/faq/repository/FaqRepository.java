@@ -10,6 +10,18 @@ import org.springframework.data.jpa.repository.Query;
 public interface FaqRepository extends JpaRepository<Faq, UUID> {
 
     List<Faq> findByIsActiveTrueOrderByPriorityAsc();
+    
+    /**
+     * 모든 활성화된 FAQ 조회 (초기 데이터 + 관리자 승인 FAQ 모두 포함)
+     * 우선순위 순으로 정렬, 동일 우선순위는 publishedAt DESC, createdAt ASC
+     */
+    @Query("""
+        SELECT f
+        FROM Faq f
+        WHERE f.isActive = true
+        ORDER BY f.priority ASC, f.publishedAt DESC, f.createdAt ASC
+        """)
+    List<Faq> findAllActiveOrderedByPriorityAndPublishedAt();
 
     List<Faq> findTop10ByDomainAndIsActiveTrueOrderByPublishedAtDesc(String domain);
 
@@ -22,12 +34,7 @@ public interface FaqRepository extends JpaRepository<Faq, UUID> {
         SELECT f
         FROM Faq f
         WHERE f.isActive = true
-          AND f.publishedAt = (
-              SELECT MAX(f2.publishedAt)
-              FROM Faq f2
-              WHERE f2.domain = f.domain
-                AND f2.isActive = true
-          )
+        ORDER BY f.domain, f.publishedAt DESC, f.priority ASC, f.createdAt ASC
         """)
-    List<Faq> findHomeFaqs();
+    List<Faq> findAllActiveOrderedByDomainAndPublishedAt();
 }
