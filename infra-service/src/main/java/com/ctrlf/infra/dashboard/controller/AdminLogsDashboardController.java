@@ -52,6 +52,10 @@ public class AdminLogsDashboardController {
     public ResponseEntity<AiLogDtos.PageResponse<AiLogDtos.LogListItem>> getLogs(
         @Parameter(description = "기간 (7 | 30 | 90)", example = "30")
         @RequestParam(value = "period", required = false) String period,
+        @Parameter(description = "시작 날짜 (ISO 8601)", example = "2025-12-06T15:00:00.000Z")
+        @RequestParam(value = "startDate", required = false) String startDate,
+        @Parameter(description = "종료 날짜 (ISO 8601)", example = "2026-01-06T14:59:59.999Z")
+        @RequestParam(value = "endDate", required = false) String endDate,
         @Parameter(description = "부서명", example = "총무팀")
         @RequestParam(value = "department", required = false) String department,
         @Parameter(description = "도메인 ID", example = "SECURITY")
@@ -67,10 +71,14 @@ public class AdminLogsDashboardController {
         @Parameter(description = "페이지 번호 (기본값: 0)", example = "0")
         @RequestParam(value = "page", required = false) Integer page,
         @Parameter(description = "페이지 크기 (기본값: 20)", example = "20")
-        @RequestParam(value = "size", required = false) Integer size
+        @RequestParam(value = "size", required = false) Integer size,
+        @Parameter(description = "정렬 (예: createdAt,desc)", example = "createdAt,desc")
+        @RequestParam(value = "sort", required = false) String sort
     ) {
         return ResponseEntity.ok(aiLogService.getLogs(
             period,
+            startDate,
+            endDate,
             department,
             domain,
             route,
@@ -78,7 +86,8 @@ public class AdminLogsDashboardController {
             onlyError,
             hasPiiOnly,
             page,
-            size
+            size,
+            sort
         ));
     }
 }
