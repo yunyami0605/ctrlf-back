@@ -229,7 +229,7 @@ public class AdminVideoController {
       @RequestParam(value = "myProcessingOnly", required = false) Boolean myProcessingOnly,
       @Parameter(description = "상태 필터 (pending: 검토 대기, approved: 승인됨, rejected: 반려됨)", example = "pending") 
       @RequestParam(value = "status", required = false) String statusFilter,
-      @Parameter(description = "검토 단계 필터 (first: 1차, second: 2차, document: 문서, all: 전체)", example = "first") 
+      @Parameter(description = "검토 단계 필터 (first: 1차, second: 2차)", example = "first") 
       @RequestParam(value = "reviewStage", required = false) String reviewStage,
       @Parameter(description = "정렬 옵션 (latest: 최신순, oldest: 오래된순, title: 제목순)", example = "latest") 
       @RequestParam(value = "sort", required = false) String sort,

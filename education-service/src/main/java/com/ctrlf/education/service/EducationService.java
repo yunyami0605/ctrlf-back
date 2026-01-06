@@ -18,6 +18,9 @@ import com.ctrlf.education.video.entity.EducationVideo;
 import com.ctrlf.education.video.entity.EducationVideoProgress;
 import com.ctrlf.education.video.repository.EducationVideoProgressRepository;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
+import com.ctrlf.education.video.repository.SourceSetRepository;
+import com.ctrlf.education.video.repository.SourceSetDocumentRepository;
+import com.ctrlf.education.video.entity.SourceSetDocument;
 import com.ctrlf.education.script.client.InfraRagClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,6 +67,8 @@ public class EducationService {
     private final EducationProgressRepository educationProgressRepository;
     private final ObjectMapper objectMapper;
     private final InfraRagClient infraRagClient;
+    private final SourceSetRepository sourceSetRepository;
+    private final SourceSetDocumentRepository sourceSetDocumentRepository;
 
     @Value("${ctrlf.infra.base-url:http://localhost:9003}")
     private String infraBaseUrl;
@@ -195,6 +200,39 @@ public class EducationService {
                 // S3 URL을 presigned URL로 변환
                 String fileUrl = v.getFileUrl();
                 String presignedUrl = infraRagClient.getPresignedDownloadUrl(fileUrl);
+                // SourceSet을 통해 documentId 조회하여 파일 정보 가져오기
+                String sourceFileName = null;
+                String sourceFileUrl = null;
+                if (v.getSourceSetId() != null) {
+                    try {
+                        // SourceSet의 첫 번째 문서 ID 가져오기
+                        List<SourceSetDocument> documents = sourceSetDocumentRepository.findBySourceSetId(v.getSourceSetId());
+                        if (!documents.isEmpty()) {
+                            UUID documentId = documents.get(0).getDocumentId();
+                            // infra-service에서 문서 정보 조회
+                            try {
+                                InfraRagClient.DocumentInfoResponse docInfo = infraRagClient.getDocument(documentId.toString());
+                                if (docInfo != null && docInfo.getSourceUrl() != null) {
+                                    sourceFileUrl = docInfo.getSourceUrl();
+                                    // sourceUrl에서 파일명 추출 (URL의 마지막 부분)
+                                    String url = docInfo.getSourceUrl();
+                                    if (url.contains("/")) {
+                                        String fileName = url.substring(url.lastIndexOf("/") + 1);
+                                        // 쿼리 파라미터 제거
+                                        if (fileName.contains("?")) {
+                                            fileName = fileName.substring(0, fileName.indexOf("?"));
+                                        }
+                                        sourceFileName = fileName;
+                                    }
+                                }
+                            } catch (Exception ex) {
+                                log.debug("문서 정보 조회 실패: documentId={}, error={}", documentId, ex.getMessage());
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.debug("SourceSet 문서 조회 실패: sourceSetId={}, error={}", v.getSourceSetId(), ex.getMessage());
+                    }
+                }
                 
                 videoItems.add(new EducationResponses.EducationVideosResponse.VideoItem(
                     v.getId(),
@@ -208,7 +246,9 @@ public class EducationService {
                     completedV,
                     total,
                     pctV,
-                    vStatus
+                    vStatus,
+                    sourceFileName, // sourceFileName
+                    sourceFileUrl   // sourceFileUrl
                 ));
             }
             // 7. 교육 진행률: 포함된 영상 진행률 평균
@@ -380,6 +420,39 @@ public class EducationService {
             // S3 URL을 presigned URL로 변환
             String fileUrl = v.getFileUrl();
             String presignedUrl = infraRagClient.getPresignedDownloadUrl(fileUrl);
+            // SourceSet을 통해 documentId 조회하여 파일 정보 가져오기
+            String sourceFileName = null;
+            String sourceFileUrl = null;
+            if (v.getSourceSetId() != null) {
+                try {
+                    // SourceSet의 첫 번째 문서 ID 가져오기
+                    List<SourceSetDocument> documents = sourceSetDocumentRepository.findBySourceSetId(v.getSourceSetId());
+                    if (!documents.isEmpty()) {
+                        UUID documentId = documents.get(0).getDocumentId();
+                        // infra-service에서 문서 정보 조회
+                        try {
+                            InfraRagClient.DocumentInfoResponse docInfo = infraRagClient.getDocument(documentId.toString());
+                            if (docInfo != null && docInfo.getSourceUrl() != null) {
+                                sourceFileUrl = docInfo.getSourceUrl();
+                                // sourceUrl에서 파일명 추출 (URL의 마지막 부분)
+                                String url = docInfo.getSourceUrl();
+                                if (url.contains("/")) {
+                                    String fileName = url.substring(url.lastIndexOf("/") + 1);
+                                    // 쿼리 파라미터 제거
+                                    if (fileName.contains("?")) {
+                                        fileName = fileName.substring(0, fileName.indexOf("?"));
+                                    }
+                                    sourceFileName = fileName;
+                                }
+                            }
+                        } catch (Exception ex) {
+                            log.debug("문서 정보 조회 실패: documentId={}, error={}", documentId, ex.getMessage());
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.debug("SourceSet 문서 조회 실패: sourceSetId={}, error={}", v.getSourceSetId(), ex.getMessage());
+                }
+            }
             // 단일 영상 항목 구성
             items.add(new EducationVideosResponse.VideoItem(
                 v.getId(),
@@ -393,7 +466,9 @@ public class EducationService {
                 completed,
                 total,
                 pct,
-                watchStatus
+                watchStatus,
+                sourceFileName, // sourceFileName
+                sourceFileUrl   // sourceFileUrl
             ));
         }
         // 목록 응답 생성

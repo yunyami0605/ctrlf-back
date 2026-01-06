@@ -73,6 +73,7 @@ public class SeedDataRunner implements CommandLineRunner {
     private final Random random = new Random();
     private final String infraBaseUrl;
     private final RestClient restClient;
+    private UUID seedDocumentId = null; // 시드 문서 ID 캐시
 
     public SeedDataRunner(
         EducationRepository educationRepository,
@@ -387,9 +388,13 @@ public class SeedDataRunner implements CommandLineRunner {
                 continue;
             }
 
-            // 각 영상에 대해 source-set 생성
+            // 각 영상에 대해 source-set 생성 및 연결
             for (var v : videos) {
-                createSourceSetForVideo(edu.getId(), v.getId(), demoUser.toString());
+                UUID sourceSetId = createSourceSetForVideo(edu.getId(), v.getId(), demoUser.toString());
+                if (sourceSetId != null) {
+                    v.setSourceSetId(sourceSetId);
+                    educationVideoRepository.save(v);
+                }
             }
             
             // 진행률 더미: 각 유저별로 랜덤하게 진행률 생성
@@ -468,16 +473,88 @@ public class SeedDataRunner implements CommandLineRunner {
     }
     
     /**
+     * 시드 문서를 조회하거나 생성합니다.
+     * 문서가 이미 존재하면 그 documentId를 반환하고, 없으면 업로드를 시도합니다.
+     */
+    private UUID getOrCreateSeedDocument(String uploaderUuid) {
+        // 캐시된 documentId가 있으면 재사용
+        if (seedDocumentId != null) {
+            return seedDocumentId;
+        }
+        
+        String seedFileUrl = "s3://ctrl-s3/docs/hr_safety_v3.pdf";
+        String seedTitle = "산업안전 규정집 v3";
+        String seedDomain = "HR";
+        
+        try {
+            // 문서 목록에서 키워드로 검색
+            List<Map<String, Object>> documents = restClient.get()
+                .uri("/rag/documents?keyword=hr_safety_v3")
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            
+            if (documents != null && !documents.isEmpty()) {
+                for (Map<String, Object> doc : documents) {
+                    String id = (String) doc.get("id");
+                    if (id != null) {
+                        seedDocumentId = UUID.fromString(id);
+                        log.info("Found existing seed document: documentId={}, fileUrl={}", seedDocumentId, seedFileUrl);
+                        return seedDocumentId;
+                    }
+                }
+            } else {
+                log.debug("No documents found with keyword 'hr_safety_v3'");
+            }
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.warn("Failed to search existing document (HTTP {}): {}", e.getStatusCode().value(), e.getMessage());
+        } catch (Exception e) {
+            log.warn("Failed to search existing document: {}", e.getMessage());
+        }
+        
+        // 문서가 없으면 업로드 시도 (JWT가 필요하므로 실패할 수 있음)
+        try {
+            Map<String, String> uploadRequest = Map.of(
+                "title", seedTitle,
+                "domain", seedDomain,
+                "fileUrl", seedFileUrl
+            );
+            
+            Map<String, Object> uploadResponse = restClient.post()
+                .uri("/rag/documents/upload")
+                .body(uploadRequest)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+            
+            if (uploadResponse != null) {
+                String documentIdStr = (String) uploadResponse.get("documentId");
+                if (documentIdStr != null) {
+                    seedDocumentId = UUID.fromString(documentIdStr);
+                    log.info("Uploaded seed document: documentId={}, fileUrl={}", seedDocumentId, seedFileUrl);
+                    return seedDocumentId;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to upload seed document (JWT may be required): {}", e.getMessage());
+        }
+        
+        // 문서 업로드도 실패하면 경고 출력
+        log.warn("Seed document not found in infra-service and upload failed. Please upload document manually: {}", seedFileUrl);
+        log.warn("Using dummy UUID for now. Document lookup will fail until document is uploaded.");
+        seedDocumentId = UUID.randomUUID();
+        return seedDocumentId;
+    }
+
+    /**
      * 영상에 대한 source-set 생성
      */
-    private void createSourceSetForVideo(UUID educationId, UUID videoId, String requestedBy) {
+    private UUID createSourceSetForVideo(UUID educationId, UUID videoId, String requestedBy) {
         // 이미 source-set이 있으면 스킵 (videoId로 조회)
         List<SourceSet> existingSourceSets = sourceSetRepository.findAll().stream()
             .filter(ss -> videoId.equals(ss.getVideoId()) && ss.getDeletedAt() == null)
             .toList();
         if (!existingSourceSets.isEmpty()) {
             log.debug("Source-set already exists. videoId={}", videoId);
-            return;
+            return existingSourceSets.get(0).getId();
         }
         
         // Source-set 생성
@@ -490,15 +567,17 @@ public class SeedDataRunner implements CommandLineRunner {
         );
         sourceSetRepository.save(sourceSet);
         
-        // Source-set에 더미 문서 추가 (실제로는 infra-service의 RAG 문서를 사용해야 함)
-        // 여기서는 더미 UUID를 사용
-        UUID dummyDocumentId = UUID.randomUUID();
-        SourceSetDocument doc = SourceSetDocument.create(sourceSet, dummyDocumentId);
+        // Source-set에 실제 문서 추가
+        // 시드 문서를 한 번만 조회/생성하고 재사용
+        UUID documentId = getOrCreateSeedDocument(requestedBy);
+        SourceSetDocument doc = SourceSetDocument.create(sourceSet, documentId);
         doc.markCompleted(); // 처리 완료 상태로 설정
         sourceSetDocumentRepository.save(doc);
         
         log.info("Seed created: SourceSet sourceSetId={}, videoId={}, educationId={}", 
             sourceSet.getId(), videoId, educationId);
+        
+        return sourceSet.getId();
     }
 
     private UUID insertScript(UUID eduId, UUID materialId, String content, Integer version, String title) {

@@ -253,14 +253,22 @@ array of object
 
 videos item
 
-| key             | 설명                              | value 타입   | 옵션     | Nullable | 예시                                           |
-| --------------- | --------------------------------- | ------------ | -------- | -------- | ---------------------------------------------- |
-| id              | 영상 ID                           | string(uuid) | required | false    | "550e8400-e29b-41d4-a716-446655440001"         |
-| title           | 영상 제목                         | string       | required | false    | "2024년 성희롱 예방 교육"                      |
-| fileUrl         | 재생 URL                          | string       | optional | true     | "https://cdn.example.com/video1.mp4"           |
-| duration        | 길이(초)                          | number       | required | false    | 1800                                           |
-| version         | 버전                              | number       | required | false    | 1                                              |
-| departmentScope | 수강 가능 부서 목록 (JSON string) | string       | optional | true     | "[\"HR\", \"ENGINEERING\"]" (JSON 배열 문자열) |
+| key               | 설명                              | value 타입   | 옵션     | Nullable | 예시                                   |
+| ----------------- | --------------------------------- | ------------ | -------- | -------- | -------------------------------------- |
+| id                | 영상 ID                           | string(uuid) | required | false    | "550e8400-e29b-41d4-a716-446655440001" |
+| title             | 영상 제목                         | string       | required | false    | "2024년 성희롱 예방 교육"              |
+| fileUrl           | 재생 URL                          | string       | optional | true     | "https://cdn.example.com/video1.mp4"   |
+| duration          | 길이(초)                          | number       | required | false    | 1800                                   |
+| version           | 버전                              | number       | required | false    | 1                                      |
+| status            | 영상 상태                         | string       | required | false    | "PUBLISHED"                            |
+| departmentScope   | 수강 가능 부서 목록               | string array | optional | true     | ["전체 부서", "총무팀", "기획팀"]      |
+| resumePosition    | 사용자 이어보기 위치(초)          | number       | optional | true     | null (사용자별 데이터이므로 null)      |
+| isCompleted       | 사용자 영상 이수 여부             | boolean      | optional | true     | null (사용자별 데이터이므로 null)      |
+| totalWatchSeconds | 사용자 누적 시청 시간(초)         | number       | optional | true     | null (사용자별 데이터이므로 null)      |
+| progressPercent   | 진행률(%)                         | number       | optional | true     | null (사용자별 데이터이므로 null)      |
+| watchStatus       | 시청 상태(시청전/시청중/시청완료) | string       | optional | true     | null (사용자별 데이터이므로 null)      |
+| sourceFileName    | 원본 파일명                       | string       | optional | true     | "hr_safety_v3.pdf"                     |
+| sourceFileUrl     | 원본 파일 URL                     | string       | optional | true     | "s3://ctrl-s3/docs/hr_safety_v3.pdf"   |
 
 ### Status
 

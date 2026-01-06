@@ -31,7 +31,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -72,11 +71,16 @@ public class SourceSetService {
                 "영상을 찾을 수 없습니다: " + req.videoId());
         }
 
-        // educationId 유효성 검증 (필수)
-        if (!educationRepository.existsById(req.educationId())) {
-            throw new ResponseStatusException(
+        // educationId 유효성 검증 및 Education 조회 (필수)
+        com.ctrlf.education.entity.Education education = educationRepository.findById(req.educationId())
+            .orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.NOT_FOUND,
-                "교육을 찾을 수 없습니다: " + req.educationId());
+                "교육을 찾을 수 없습니다: " + req.educationId()));
+        
+        // Education의 departmentScope에서 첫 번째 부서 추출
+        String department = null;
+        if (education.getDepartmentScope() != null && education.getDepartmentScope().length > 0) {
+            department = education.getDepartmentScope()[0];
         }
 
         // 소스셋 생성 (requestedBy는 JWT에서 추출한 userUuid 사용)
@@ -87,14 +91,22 @@ public class SourceSetService {
             req.educationId(),   // 필수
             req.videoId()        // 필수
         );
-        sourceSet = sourceSetRepository.save(sourceSet);
+        final SourceSet savedSourceSet = sourceSetRepository.save(sourceSet);
+
+        // EducationVideo에 sourceSetId 연결
+        videoRepository.findById(req.videoId()).ifPresent(video -> {
+            video.setSourceSetId(savedSourceSet.getId());
+            videoRepository.save(video);
+            log.info("EducationVideo에 sourceSetId 연결: videoId={}, sourceSetId={}", 
+                req.videoId(), savedSourceSet.getId());
+        });
 
         // 문서 관계 추가
         List<SourceSetDocument> documents = new ArrayList<>();
         for (String documentIdStr : req.documentIds()) {
             try {
                 UUID documentId = UUID.fromString(documentIdStr);
-                SourceSetDocument ssd = SourceSetDocument.create(sourceSet, documentId);
+                SourceSetDocument ssd = SourceSetDocument.create(savedSourceSet, documentId);
                 documents.add(ssd);
             } catch (IllegalArgumentException e) {
                 log.warn("잘못된 documentId 형식: {}", documentIdStr);
@@ -107,11 +119,12 @@ public class SourceSetService {
 
         // 소스셋 생성 후 AI 서버에 작업 시작 요청 (BestEffort)
         // 트랜잭션 커밋 후 실행하여 SourceSet이 DB에 확실히 저장된 후 AI 서버가 조회할 수 있도록 함
-        final UUID sourceSetId = sourceSet.getId();
-        final UUID educationId = sourceSet.getEducationId();
-        final UUID videoId = sourceSet.getVideoId();
+        final UUID sourceSetId = savedSourceSet.getId();
+        final UUID educationId = savedSourceSet.getEducationId();
+        final UUID videoId = savedSourceSet.getVideoId();
         final List<String> documentIdsForCallback = req.documentIds();
-        final String sourceSetTitle = sourceSet.getTitle();
+        final String sourceSetTitle = savedSourceSet.getTitle();
+        final String departmentForCallback = department; // Education의 departmentScope에서 추출한 부서
         
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -134,7 +147,7 @@ public class SourceSetService {
                         // 트랜잭션 밖에서 실행되므로 SourceSet을 다시 조회
                         SourceSet sourceSetAfterCommit = sourceSetRepository.findByIdAndNotDeleted(sourceSetId)
                             .orElseThrow(() -> new IllegalStateException("SourceSet not found after commit: " + sourceSetId));
-                        startSourceSetProcessing(sourceSetId, sourceSetAfterCommit, documentIdsForCallback);
+                        startSourceSetProcessing(sourceSetId, sourceSetAfterCommit, documentIdsForCallback, departmentForCallback);
                     } catch (Exception e) {
                         log.warn("소스셋 작업 시작 요청 실패 (소스셋은 생성됨): sourceSetId={}, error={}", 
                             sourceSetId, e.getMessage(), e);
@@ -147,8 +160,8 @@ public class SourceSetService {
         // 응답 생성
         List<String> documentIds = req.documentIds();
         return new SourceSetCreateResponse(
-            sourceSet.getId().toString(),
-            sourceSet.getStatus(),
+            savedSourceSet.getId().toString(),
+            savedSourceSet.getStatus(),
             documentIds
         );
     }
@@ -162,16 +175,19 @@ public class SourceSetService {
      *   <li>datasetId, indexVersion, ingestId 제거: Spring이 미리 알 수 없음</li>
      *   <li>scriptJobId, domain, language 제거: 스펙에서 제거됨</li>
      *   <li>educationId 추가: SourceSet에서 가져옴</li>
+     *   <li>department 추가: JWT에서 추출한 부서 정보</li>
      * </ul>
      * 
      * @param sourceSetId 소스셋 ID
      * @param sourceSet 소스셋 엔티티
      * @param documentIds 문서 ID 목록 (사용하지 않음, 참고용)
+     * @param department 요청자 부서 (JWT에서 추출, 선택)
      */
     private void startSourceSetProcessing(
         UUID sourceSetId,
         SourceSet sourceSet,
-        List<String> documentIds
+        List<String> documentIds,
+        String department
     ) {
         // videoId 사용: SourceSet에 저장된 videoId 사용 (필수)
         String videoId = sourceSet.getVideoId().toString();
@@ -189,7 +205,8 @@ public class SourceSetService {
             requestId,   // requestId (멱등 키)
             traceId,     // traceId
             null,        // scriptPolicyId (선택)
-            null         // llmModelHint (선택)
+            null,        // llmModelHint (선택)
+            department   // department (선택)
         );
 
         // 요청 로그 (전체 요청 body 포함)

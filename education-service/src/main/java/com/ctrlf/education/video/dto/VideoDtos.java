@@ -250,7 +250,9 @@ public final class VideoDtos {
         @Schema(description = "수강 가능 부서 목록 (사용 가능한 값: '전체 부서', '총무팀', '기획팀', '마케팅팀', '인사팀', '재무팀', '개발팀', '영업팀', '법무팀')", 
                 example = "[\"총무팀\", \"기획팀\"]") List<String> departmentScope,
         @Schema(description = "재생 순서(0-base)") Integer orderIndex,
-        @Schema(description = "생성시각 ISO8601") String createdAt
+        @Schema(description = "생성시각 ISO8601") String createdAt,
+        @Schema(description = "원본 파일명") String sourceFileName,
+        @Schema(description = "원본 파일 URL") String sourceFileUrl
     ) {}
 
     @Schema(description = "영상 메타 수정 요청 (부분 업데이트)")

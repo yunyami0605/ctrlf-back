@@ -110,6 +110,10 @@ public final class EducationResponses {
             private Integer progressPercent;
             /** 시청 상태 레이블(시청전/시청중/시청완료) */
             private String watchStatus;
+            /** 원본 파일명 */
+            private String sourceFileName;
+            /** 원본 파일 URL */
+            private String sourceFileUrl;
         }
     }
 

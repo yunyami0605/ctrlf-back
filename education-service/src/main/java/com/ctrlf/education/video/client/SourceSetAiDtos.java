@@ -40,7 +40,10 @@ public final class SourceSetAiDtos {
         String scriptPolicyId,
 
         /** 사용 모델 힌트(선택) */
-        String llmModelHint
+        String llmModelHint,
+
+        /** 부서(선택) */
+        String department
     ) {}
 
     /**
