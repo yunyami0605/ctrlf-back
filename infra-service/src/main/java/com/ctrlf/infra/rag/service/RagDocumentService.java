@@ -104,11 +104,13 @@ public class RagDocumentService {
         // 변경사항이 있으면 AI 서버 재처리 요청 (베스트Effort)
         if (d.getSourceUrl() != null && !d.getSourceUrl().isBlank()) {
             try {
+                // [FIX] S3 URL → Presigned URL 변환 (RAGFlow 404 오류 해결)
+                String presignedUrl = getPresignedSourceUrl(d.getSourceUrl());
                 ragAiClient.ingest(
                     d.getId(),
                     d.getDocumentId(),
                     d.getVersion(),
-                    d.getSourceUrl(),
+                    presignedUrl,
                     d.getDomain(),
                     d.getDepartment()
                 );
@@ -157,11 +159,13 @@ public class RagDocumentService {
         RagDocumentStatus status = RagDocumentStatus.REPROCESSING;
         if (d.getSourceUrl() != null && !d.getSourceUrl().isBlank()) {
             try {
+                // [FIX] S3 URL → Presigned URL 변환 (RAGFlow 404 오류 해결)
+                String presignedUrl = getPresignedSourceUrl(d.getSourceUrl());
                 RagAiClient.AiResponse aiResp = ragAiClient.ingest(
                     d.getId(),
                     d.getDocumentId(),
                     d.getVersion(),
-                    d.getSourceUrl(),
+                    presignedUrl,
                     d.getDomain(),
                     d.getDepartment()
                 );
@@ -465,6 +469,49 @@ public class RagDocumentService {
     }
 
     /**
+     * [FIX] S3 URL을 Presigned URL로 변환합니다.
+     *
+     * 문제 상황:
+     * - RAGFlow가 S3 파일을 다운로드할 때 인증 없이 접근하여 404 오류 발생
+     * - 기존에는 sourceUrl을 그대로 AI 서버로 전달하여 S3 인증 실패
+     *
+     * 해결 방법:
+     * - S3 URL을 AWS Presigned URL로 변환하여 임시 인증 토큰 포함
+     * - Presigned URL에는 X-Amz-Algorithm, X-Amz-Signature 등 인증 파라미터가 포함됨
+     * - 12시간 유효 기간 설정 (RAGFlow 처리 시간 고려)
+     *
+     * @param sourceUrl 원본 S3 URL (s3:// 또는 https://...s3... 형식)
+     * @return Presigned URL (12시간 유효) 또는 S3가 아닌 경우 원본 URL
+     * @see S3Service#presignDownload(String, java.time.Duration)
+     */
+    private String getPresignedSourceUrl(String sourceUrl) {
+        if (sourceUrl == null || sourceUrl.isBlank()) {
+            return sourceUrl;
+        }
+
+        try {
+            // S3 URL 패턴 감지: s3:// 스킴, .s3. 도메인, s3.amazonaws.com 도메인
+            if (sourceUrl.startsWith("s3://") ||
+                sourceUrl.contains(".s3.") ||
+                sourceUrl.contains("s3.amazonaws.com")) {
+
+                // S3Service를 통해 Presigned URL 생성 (12시간 유효)
+                URL presignedUrl = s3Service.presignDownload(sourceUrl, java.time.Duration.ofHours(12));
+                String presignedUrlStr = presignedUrl.toString();
+                log.debug("Generated presigned URL: original={}, presigned={}", sourceUrl, presignedUrlStr);
+                return presignedUrlStr;
+            }
+
+            // S3 URL이 아닌 경우 원본 그대로 반환 (로컬 파일, HTTP URL 등)
+            return sourceUrl;
+        } catch (Exception e) {
+            // Presigned URL 생성 실패 시 원본 URL 반환 (AI 서버에서 재시도 가능하도록)
+            log.error("Failed to generate presigned URL: sourceUrl={}, error={}", sourceUrl, e.getMessage(), e);
+            return sourceUrl;
+        }
+    }
+
+    /**
      * RagDocument를 VersionDetail로 변환하는 헬퍼 메서드
      */
     private VersionDetail mapToVersionDetail(RagDocument doc) {
@@ -664,11 +711,13 @@ public class RagDocumentService {
             try {
                 // AI 서버에 문서 임베딩 처리 요청
                 // AI 서버는 처리 완료 후 PATCH /internal/rag/documents/{ragDocumentPk}/status 로 콜백을 보냅니다
+                // [FIX] S3 URL → Presigned URL 변환 (RAGFlow 404 오류 해결)
+                String presignedUrl = getPresignedSourceUrl(doc.getSourceUrl());
                 RagAiClient.AiResponse aiResp = ragAiClient.ingest(
                     doc.getId(),  // UUID (AI 서버가 콜백 시 사용할 PK)
                     doc.getDocumentId(),
                     doc.getVersion(),
-                    doc.getSourceUrl(),
+                    presignedUrl,  // S3 Presigned URL (12시간 유효)
                     doc.getDomain(),
                     doc.getDepartment()
                 );
@@ -684,12 +733,12 @@ public class RagDocumentService {
                         documentRepository.save(doc);
                     } else {
                         // 변환 실패 시 기본값 유지 (DRAFT)
-                        log.warn("AI 서버 응답의 status를 변환할 수 없음: status={}, documentId={}", 
+                        log.warn("AI 서버 응답의 status를 변환할 수 없음: status={}, documentId={}",
                             aiResp.getStatus(), doc.getDocumentId());
                     }
                 }
             } catch (Exception e) {
-                log.error("AI 서버 처리 요청 실패: id={}, documentId={}, version={}, error={}", 
+                log.error("AI 서버 처리 요청 실패: id={}, documentId={}, version={}, error={}",
                     doc.getId(), doc.getDocumentId(), doc.getVersion(), e.getMessage(), e);
                 // AI 서버 호출 실패 시 전처리 상태를 FAILED로 설정
                 doc.setPreprocessStatus("FAILED");
@@ -697,7 +746,7 @@ public class RagDocumentService {
                 documentRepository.save(doc);
             }
         }
-        
+
         return new CreatePolicyResponse(
             doc.getId().toString(),
             doc.getDocumentId(),
@@ -776,11 +825,13 @@ public class RagDocumentService {
             try {
                 // AI 서버에 문서 임베딩 처리 요청
                 // AI 서버는 처리 완료 후 PATCH /internal/rag/documents/{ragDocumentPk}/status 로 콜백을 보냅니다
+                // [FIX] S3 URL → Presigned URL 변환 (RAGFlow 404 오류 해결)
+                String presignedUrl = getPresignedSourceUrl(newVersionDoc.getSourceUrl());
                 RagAiClient.AiResponse aiResp = ragAiClient.ingest(
                     newVersionDoc.getId(),  // UUID (AI 서버가 콜백 시 사용할 PK)
                     newVersionDoc.getDocumentId(),
                     newVersionDoc.getVersion(),
-                    newVersionDoc.getSourceUrl(),
+                    presignedUrl,  // S3 Presigned URL (12시간 유효)
                     newVersionDoc.getDomain(),
                     newVersionDoc.getDepartment()
                 );
@@ -878,11 +929,13 @@ public class RagDocumentService {
             try {
                 // AI 서버에 문서 임베딩 처리 요청
                 // AI 서버는 처리 완료 후 PATCH /internal/rag/documents/{ragDocumentPk}/status 로 콜백을 보냅니다
+                // [FIX] S3 URL → Presigned URL 변환 (RAGFlow 404 오류 해결)
+                String presignedUrl = getPresignedSourceUrl(doc.getSourceUrl());
                 RagAiClient.AiResponse aiResp = ragAiClient.ingest(
                     doc.getId(),  // UUID (AI 서버가 콜백 시 사용할 PK)
                     doc.getDocumentId(),
                     doc.getVersion(),
-                    doc.getSourceUrl(),
+                    presignedUrl,  // S3 Presigned URL (12시간 유효)
                     doc.getDomain(),
                     doc.getDepartment()
                 );
@@ -1074,11 +1127,13 @@ public class RagDocumentService {
             try {
                 // AI 서버에 문서 임베딩 처리 요청
                 // AI 서버는 처리 완료 후 PATCH /internal/rag/documents/{ragDocumentPk}/status 로 콜백을 보냅니다
+                // [FIX] S3 URL → Presigned URL 변환 (RAGFlow 404 오류 해결)
+                String presignedUrl = getPresignedSourceUrl(doc.getSourceUrl());
                 RagAiClient.AiResponse aiResp = ragAiClient.ingest(
                     doc.getId(),  // UUID (AI 서버가 콜백 시 사용할 PK)
                     doc.getDocumentId(),
                     doc.getVersion(),
-                    doc.getSourceUrl(),
+                    presignedUrl,  // S3 Presigned URL (12시간 유효)
                     doc.getDomain(),
                     doc.getDepartment()
                 );
