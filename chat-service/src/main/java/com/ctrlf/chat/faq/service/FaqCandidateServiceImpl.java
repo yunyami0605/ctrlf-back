@@ -112,6 +112,7 @@ public class FaqCandidateServiceImpl implements FaqCandidateService {
 
         // 후보 상태 변경
         candidate.setStatus(FaqCandidate.CandidateStatus.EXCLUDED);
+        faqCandidateRepository.save(candidate);
 
         // 관리자 수정 이력 기록 (정적 팩토리 사용)
         FaqRevision revision = FaqRevision.create(

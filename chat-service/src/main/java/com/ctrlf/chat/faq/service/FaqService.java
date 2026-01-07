@@ -50,4 +50,11 @@ public interface FaqService {
 
     /** AI 초안 반려 */
     void rejectDraft(UUID draftId, UUID reviewerId, String reason);
+
+    /**
+     * 초기 FAQ 데이터의 질문들에 대해 AI 답변을 생성하여 업데이트
+     * 
+     * @return 초기 FAQ AI 답변 생성 응답 (상태, 성공/실패 개수 포함)
+     */
+    com.ctrlf.chat.faq.dto.response.InitialFaqAiAnswerGenerateResponse generateAiAnswersForInitialFaqs();
 }

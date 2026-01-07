@@ -59,14 +59,24 @@ public class InternalAiLogController {
         @Valid @RequestBody AiLogDtos.BulkRequest request
     ) {
         // X-Internal-Token 검증은 InternalTokenFilter에서 처리
-        log.info("[AI 로그 Bulk 수신] 요청 수신: logs 개수={}", request.getLogs() != null ? request.getLogs().size() : 0);
+        log.info("[AI 로그 Bulk 수신] 요청 수신: logs 개수={}, request={}", 
+            request.getLogs() != null ? request.getLogs().size() : 0, request);
         
-        AiLogDtos.BulkResponse response = aiLogService.saveBulkLogs(request);
-        
-        log.info("[AI 로그 Bulk 수신] 처리 완료: received={}, saved={}, failed={}", 
-            response.getReceived(), response.getSaved(), response.getFailed());
-        
-        return ResponseEntity.ok(response);
+        try {
+            AiLogDtos.BulkResponse response = aiLogService.saveBulkLogs(request);
+            
+            log.info("[AI 로그 Bulk 수신] 처리 완료: received={}, saved={}, failed={}", 
+                response.getReceived(), response.getSaved(), response.getFailed());
+            
+            if (response.getFailed() > 0) {
+                log.warn("[AI 로그 Bulk 수신] 일부 실패: errors={}", response.getErrors());
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("[AI 로그 Bulk 수신] 처리 중 예외 발생: error={}", e.getMessage(), e);
+            throw e;
+        }
     }
 }
 

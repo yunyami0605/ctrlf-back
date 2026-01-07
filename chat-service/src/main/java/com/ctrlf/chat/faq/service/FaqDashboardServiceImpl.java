@@ -38,11 +38,11 @@ public class FaqDashboardServiceImpl implements FaqDashboardService {
     }
 
     /**
-     * 도메인 상세: TOP 10 FAQ
+     * 도메인 상세: TOP 2 FAQ (도메인별 최대 2개로 제한)
      */
     @Override
     public List<FaqDashboardResponse> getTopFaqsByDomain(String domain) {
-        return faqRepository.findTop10ByDomainAndIsActiveTrueOrderByPublishedAtDesc(domain)
+        return faqRepository.findTop2ByDomainAndIsActiveTrueOrderByPublishedAtDesc(domain)
             .stream()
             .map(FaqDashboardResponse::from)
             .toList();

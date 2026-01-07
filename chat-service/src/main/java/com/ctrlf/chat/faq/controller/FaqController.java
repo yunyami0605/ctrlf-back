@@ -3,6 +3,7 @@ package com.ctrlf.chat.faq.controller;
 import com.ctrlf.chat.faq.dto.request.FaqCreateRequest;
 import com.ctrlf.chat.faq.dto.request.FaqUpdateRequest;
 import com.ctrlf.chat.faq.dto.response.FaqResponse;
+import com.ctrlf.chat.faq.dto.response.InitialFaqAiAnswerGenerateResponse;
 import com.ctrlf.chat.faq.service.FaqService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -77,5 +78,19 @@ public class FaqController {
     public ResponseEntity<Void> delete(@PathVariable UUID faqId) {
         faqService.delete(faqId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 초기 FAQ 데이터의 질문들에 대해 AI 답변 생성 및 업데이트 (관리자)
+     * 
+     * <p>초기 데이터로 넣은 FAQ 질문들(ID가 00000000-0000-0000-0000-로 시작)에 대해
+     * AI로 답변을 생성하여 FAQ의 answer 필드를 업데이트합니다.</p>
+     * 
+     * @return 초기 FAQ AI 답변 생성 응답 (상태, 성공/실패 개수 포함)
+     */
+    @PostMapping("/initial/generate-ai-answers")
+    public ResponseEntity<InitialFaqAiAnswerGenerateResponse> generateAiAnswersForInitialFaqs() {
+        InitialFaqAiAnswerGenerateResponse response = faqService.generateAiAnswersForInitialFaqs();
+        return ResponseEntity.ok(response);
     }
 }

@@ -50,34 +50,36 @@ public class InternalTokenFilter extends OncePerRequestFilter {
         String providedToken = request.getHeader(INTERNAL_TOKEN_HEADER);
         String expectedToken = tokenProperties.getToken();
 
-        // 디버깅: 토큰 값 로깅 (민감 정보이므로 마스킹)
-        log.debug("Token validation - Expected: {}, Provided: {}", 
+        // 토큰 검증 로깅 (민감 정보이므로 마스킹)
+        log.info("[InternalTokenFilter] 토큰 검증 시작: path={}, expectedToken={}, providedToken={}", 
+            path,
             expectedToken != null ? maskToken(expectedToken) : "null",
             providedToken != null ? maskToken(providedToken) : "null");
 
         // 토큰 검증
         if (expectedToken == null || expectedToken.isBlank()) {
             // 토큰이 설정되지 않은 경우 경고만 출력하고 통과 (개발 환경 허용)
-            log.warn("Internal token not configured, allowing request to {}", path);
+            log.warn("[InternalTokenFilter] Internal token not configured, allowing request to {}", path);
             filterChain.doFilter(request, response);
             return;
         }
 
         if (providedToken == null || providedToken.isBlank()) {
-            log.warn("Missing X-Internal-Token header for path: {}", path);
+            log.warn("[InternalTokenFilter] Missing X-Internal-Token header for path: {}", path);
             sendUnauthorizedResponse(response, "Missing X-Internal-Token header");
             return;
         }
 
         if (!expectedToken.equals(providedToken)) {
-            log.warn("Invalid X-Internal-Token for path: {} - Expected length: {}, Provided length: {}", 
-                path, expectedToken.length(), providedToken != null ? providedToken.length() : 0);
+            log.warn("[InternalTokenFilter] Invalid X-Internal-Token for path: {} - Expected length: {}, Provided length: {}, expectedToken={}, providedToken={}", 
+                path, expectedToken.length(), providedToken != null ? providedToken.length() : 0,
+                maskToken(expectedToken), maskToken(providedToken));
             sendUnauthorizedResponse(response, "Invalid X-Internal-Token");
             return;
         }
 
         // 토큰 검증 성공
-        log.debug("Internal token validated for path: {}", path);
+        log.info("[InternalTokenFilter] 토큰 검증 성공: path={}", path);
         filterChain.doFilter(request, response);
     }
 

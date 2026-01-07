@@ -2,6 +2,7 @@ package com.ctrlf.chat.faq.controller;
 
 import com.ctrlf.chat.faq.dto.request.AutoFaqGenerateRequest;
 import com.ctrlf.chat.faq.dto.request.FaqCandidateCreateRequest;
+import com.ctrlf.chat.faq.dto.request.FaqCandidateExcludeRequest;
 import com.ctrlf.chat.faq.dto.request.FaqDraftGenerateBatchRequest;
 import com.ctrlf.chat.faq.dto.response.AutoFaqGenerateResponse;
 import com.ctrlf.chat.faq.dto.response.FaqCandidateResponse;
@@ -9,6 +10,7 @@ import com.ctrlf.chat.faq.dto.response.FaqDraftCreateResponse;
 import com.ctrlf.chat.faq.dto.response.FaqDraftGenerateBatchResponse;
 import com.ctrlf.chat.faq.service.FaqCandidateService;
 import com.ctrlf.chat.faq.service.FaqService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -119,5 +121,25 @@ public class AdminFaqCandidateController {
             response.getErrorMessage());
         
         return response;
+    }
+
+    /**
+     * FAQ 후보 반려 (제외 처리)
+     * 
+     * FAQ 후보를 제외 처리하여 상태를 EXCLUDED로 변경합니다.
+     * 
+     * @param candidateId FAQ 후보 ID
+     * @param request 반려 요청 (사유 포함)
+     */
+    @PostMapping("/{candidateId}/reject")
+    public void rejectCandidate(
+        @PathVariable UUID candidateId,
+        @Valid @RequestBody FaqCandidateExcludeRequest request
+    ) {
+        log.info("[FAQ 후보 반려] 요청 수신: candidateId={}, reason={}", candidateId, request.reason());
+        
+        faqCandidateService.excludeCandidate(candidateId, request.reason());
+        
+        log.info("[FAQ 후보 반려] 처리 완료: candidateId={}", candidateId);
     }
 }

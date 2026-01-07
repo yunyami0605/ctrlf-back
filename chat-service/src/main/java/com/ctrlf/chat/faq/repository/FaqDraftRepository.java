@@ -12,4 +12,9 @@ public interface FaqDraftRepository extends JpaRepository<FaqDraft, UUID> {
     List<FaqDraft> findByStatus(FaqDraft.Status status);
 
     List<FaqDraft> findByDomain(String domain);
+
+    /**
+     * faqDraftId로 Draft 조회 (AI 서버에서 내려준 draft ID)
+     */
+    java.util.Optional<FaqDraft> findByFaqDraftId(String faqDraftId);
 }

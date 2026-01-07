@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -47,8 +49,20 @@ public class ChatAiClient {
                 llmModel
             );
 
+        // 필수 헤더 생성
+        UUID traceId = UUID.randomUUID();
+        String userIdStr = userId != null ? userId.toString() : "";
+        String deptIdStr = department != null ? department : "";
+
+        log.info("[CHAT → AI/MESSAGES] 요청 전송: sessionId={}, userId={}, traceId={}, deptId={}, domain={}, route={}",
+            sessionId, userId, traceId, deptIdStr, domain, channel);
+
         return aiWebClient.post()
             .uri("/ai/chat/messages")
+            .header("X-Trace-Id", traceId.toString())
+            .header("X-User-Id", userIdStr)
+            .header("X-Dept-Id", deptIdStr)
+            .header("X-Conversation-Id", sessionId.toString())
             .bodyValue(request)
             .retrieve()
             .bodyToMono(ChatAiResponse.class)
