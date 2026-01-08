@@ -40,12 +40,10 @@ public class S3Controller {
     @PostMapping("/upload")
     @Operation(summary = "Presigned Upload URL 발급")
     public ResponseEntity<UploadResponse> presignUpload(@Valid @RequestBody S3UploadRequest req) {
-        // 업로드용 사인드 URL 생성
+        // 업로드용 사인드 URL 생성 및 파일 URL 생성 (동일한 경로 사용)
         String type = req.getType().trim().toLowerCase(Locale.ROOT);
-        URL putUrl = presignService.presignUpload(type, req.getFilename(), req.getContentType());
-        // 프론트가 업로드 후 보관할 S3 주소(s3://bucket/key)
-        String fileUrl = presignService.buildFileUrl(type, req.getFilename());
-        return ResponseEntity.ok(new UploadResponse(putUrl.toString(), fileUrl));
+        var result = presignService.presignUploadWithFileUrl(type, req.getFilename(), req.getContentType());
+        return ResponseEntity.ok(new UploadResponse(result.uploadUrl().toString(), result.fileUrl()));
     }
 
     @PostMapping("/download")

@@ -58,6 +58,36 @@ public class S3Service {
     }
 
     /**
+     * 업로드용 Presigned URL 생성 및 파일 URL 반환.
+     * presignUpload()와 동일한 경로를 사용하여 fileUrl을 생성합니다.
+     *
+     * @param type 업로드 카테고리 경로 prefix
+     * @param filename 원본 파일명(확장자 추출)
+     * @param contentType MIME 타입
+     * @return 업로드 URL과 파일 URL을 포함한 결과
+     */
+    public PresignUploadResult presignUploadWithFileUrl(String type, String filename, String contentType) {
+        S3Path path = S3Path.buildUploadPath(defaultBucket, type, filename);
+        PutObjectRequest putReq = PutObjectRequest.builder()
+            .bucket(path.bucket())
+            .key(path.key())
+            .contentType(contentType)
+            .build();
+        PutObjectPresignRequest presignReq = PutObjectPresignRequest.builder()
+            .signatureDuration(ttl)
+            .putObjectRequest(putReq)
+            .build();
+        URL uploadUrl = presigner.presignPutObject(presignReq).url();
+        String fileUrl = "s3://" + path.bucket() + "/" + path.key();
+        return new PresignUploadResult(uploadUrl, fileUrl);
+    }
+
+    /**
+     * Presign 업로드 결과 (URL과 파일 URL 포함).
+     */
+    public record PresignUploadResult(URL uploadUrl, String fileUrl) {}
+
+    /**
      * 다운로드용 Presigned URL 생성.
      *
      * @param fileUrl s3://bucket/key 또는 key 문자열

@@ -1,5 +1,6 @@
 package com.ctrlf.infra.s3.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -25,6 +26,7 @@ public final class PresignDtos {
     @NoArgsConstructor
     public static class S3UploadRequest {
         @NotBlank
+        @JsonProperty("fileName") // 프론트엔드가 camelCase로 보내므로 매핑
         @Schema(example = "test.png")
         private String filename;
         @NotBlank
