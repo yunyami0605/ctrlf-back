@@ -156,6 +156,11 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q1", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -164,7 +169,7 @@ public class PersonalizationService {
                     "remaining", response.getRemaining()
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -210,6 +215,11 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q2", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -220,7 +230,7 @@ public class PersonalizationService {
                     "is_completed", progress.isCompleted()
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -262,11 +272,16 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q3", periodStart, periodEnd, updatedAt,
                 Map.of("deadline_count", response.getDeadlineCount()),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -315,6 +330,11 @@ public class PersonalizationService {
             int progressPercent = lastProgress.getProgress_percent() != null ? lastProgress.getProgress_percent() : 0;
             int resumeSeconds = lastProgress.getResume_position_seconds() != null ? lastProgress.getResume_position_seconds() : 0;
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q4", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -322,7 +342,7 @@ public class PersonalizationService {
                     "total_watch_seconds", resumeSeconds
                 ),
                 List.of(videoItem),
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -388,6 +408,9 @@ public class PersonalizationService {
             extra.put("target_dept_id", targetDeptId != null ? targetDeptId : "ALL");
             extra.put("target_dept_name", targetDeptName);
             extra.put("attempt_count", myAttempts.size());
+            // 사용자 이름 조회
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
 
             return new ResolveResponse(
                 "Q5", periodStart, periodEnd, updatedAt,
@@ -449,6 +472,9 @@ public class PersonalizationService {
 
             Map<String, Object> extra = new HashMap<>();
             extra.put("total_educations", lowestByEducation.size());
+            // 사용자 이름 조회
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
 
             return new ResolveResponse(
                 "Q6", periodStart, periodEnd, updatedAt,
@@ -517,6 +543,11 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q7", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -529,7 +560,7 @@ public class PersonalizationService {
                     "average_score", score.getAverageScore() != null ? score.getAverageScore() : 0.0
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -574,6 +605,11 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q8", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -584,7 +620,7 @@ public class PersonalizationService {
                     "is_all_completed", progress.isCompleted()
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -625,11 +661,16 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q9", periodStart, periodEnd, updatedAt,
                 Map.of("todo_count", response.getTodoCount()),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -692,6 +733,11 @@ public class PersonalizationService {
                 ));
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q10", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -704,7 +750,7 @@ public class PersonalizationService {
                     "overtime_hours", overtimeSum != null ? overtimeSum.doubleValue() : 0.0
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -734,6 +780,16 @@ public class PersonalizationService {
             int totalDays = 15;
             double remainingDays = totalDays - usedDays;
 
+            // 사용자 이름 조회
+            String employeeName = employeeRepository.findByUserUuid(userUuid)
+                .map(Employee::getName)
+                .orElse(null);
+
+            Map<String, Object> extra = new HashMap<>();
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
+
             return new ResolveResponse(
                 "Q11", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -742,7 +798,7 @@ public class PersonalizationService {
                     "remaining_days", remainingDays
                 ),
                 List.of(),
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -794,6 +850,11 @@ public class PersonalizationService {
                 ));
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q12", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -803,7 +864,7 @@ public class PersonalizationService {
                     "usage_count", usageCount.intValue()
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -836,6 +897,11 @@ public class PersonalizationService {
                 welfarePoints = welfarePoint.getRemaining() != null ? welfarePoint.getRemaining() : 0;
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q14", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -845,7 +911,7 @@ public class PersonalizationService {
                     "total_used", welfarePoint != null ? welfarePoint.getTotalUsed() : 0
                 ),
                 List.of(),
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -897,6 +963,11 @@ public class PersonalizationService {
                 ));
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q15", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -906,7 +977,7 @@ public class PersonalizationService {
                     "usage_count", usageCount.intValue()
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -978,11 +1049,16 @@ public class PersonalizationService {
             metrics.put("total_deductions", salary.getTotalDeductions() != null ? salary.getTotalDeductions() : 0);
             metrics.put("net_pay", salary.getNetPay() != null ? salary.getNetPay() : 0);
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q13", periodStart, periodEnd, updatedAt,
                 metrics,
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -1053,11 +1129,17 @@ public class PersonalizationService {
             metrics.put("phone", employee.getPhone() != null ? employee.getPhone() : "");
             metrics.put("office_phone", employee.getOfficePhone() != null ? employee.getOfficePhone() : "");
 
+            // extra에 employee_name 추가
+            Map<String, Object> extra = new HashMap<>();
+            if (employee.getName() != null) {
+                extra.put("employee_name", employee.getName());
+            }
+
             return new ResolveResponse(
                 "Q16", periodStart, periodEnd, updatedAt,
                 metrics,
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -1120,6 +1202,12 @@ public class PersonalizationService {
             String teamLeadPosition = department != null && department.getLeaderPosition() != null ? department.getLeaderPosition() : "";
             String parentDepartment = department != null && department.getParentDepartmentName() != null ? department.getParentDepartmentName() : "";
 
+            // extra에 employee_name 추가
+            Map<String, Object> extra = new HashMap<>();
+            if (employee.getName() != null) {
+                extra.put("employee_name", employee.getName());
+            }
+
             return new ResolveResponse(
                 "Q17", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -1133,7 +1221,7 @@ public class PersonalizationService {
                     "parent_department", parentDepartment
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -1198,6 +1286,11 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q18", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -1209,7 +1302,7 @@ public class PersonalizationService {
                     "is_fully_completed", isFullyCompleted
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -1268,6 +1361,11 @@ public class PersonalizationService {
                 }
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q19", periodStart, periodEnd, updatedAt,
                 Map.of(
@@ -1277,7 +1375,7 @@ public class PersonalizationService {
                     "nearest_deadline", deadline.getNearestDeadline() != null ? deadline.getNearestDeadline() : ""
                 ),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
@@ -1335,11 +1433,16 @@ public class PersonalizationService {
                 items.add(new Q20TodoItem("deadline", "이번 주 마감 교육/퀴즈 " + todoResponse.getTodoCount() + "건", null, null));
             }
 
+            // 사용자 이름 조회
+            Map<String, Object> extra = new HashMap<>();
+            employeeRepository.findByUserUuid(userUuid)
+                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+
             return new ResolveResponse(
                 "Q20", periodStart, periodEnd, updatedAt,
                 Map.of("todo_count", items.size()),
                 items,
-                Map.of(),
+                extra,
                 null
             );
         } catch (IllegalArgumentException e) {
