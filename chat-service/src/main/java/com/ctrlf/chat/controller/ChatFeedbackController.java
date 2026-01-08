@@ -2,6 +2,7 @@ package com.ctrlf.chat.controller;
 
 import com.ctrlf.chat.dto.request.ChatFeedbackRequest;
 import com.ctrlf.chat.service.ChatFeedbackService;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -39,7 +40,7 @@ public class ChatFeedbackController {
     public ResponseEntity<Void> messageFeedback(
         @PathVariable UUID sessionId,
         @PathVariable UUID messageId,
-        @RequestBody ChatFeedbackRequest request,
+        @Valid @RequestBody ChatFeedbackRequest request,
         @AuthenticationPrincipal Jwt jwt
     ) {
         UUID userUuid = UUID.fromString(jwt.getSubject());

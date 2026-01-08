@@ -44,8 +44,19 @@ public class ChatFeedback {
     @Column(name = "created_at")
     private Instant createdAt;
 
+    /** 수정 시각 */
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
     @PrePersist
     protected void onCreate() {
-        this.createdAt = Instant.now();
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = Instant.now();
     }
 }
