@@ -2,7 +2,6 @@ package com.ctrlf.education.config;
 
 import com.ctrlf.education.entity.Education;
 import com.ctrlf.education.entity.EducationCategory;
-import com.ctrlf.education.entity.EducationProgress;
 import com.ctrlf.education.entity.EducationTopic;
 import com.ctrlf.education.repository.EducationRepository;
 import com.ctrlf.education.script.entity.EducationScript;
@@ -20,8 +19,6 @@ import com.ctrlf.education.video.repository.SourceSetRepository;
 import com.ctrlf.education.video.repository.VideoGenerationJobRepository;
 import com.ctrlf.education.video.entity.SourceSet;
 import com.ctrlf.education.video.entity.SourceSetDocument;
-import com.ctrlf.common.dto.PageResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
@@ -31,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.time.Instant;
-import java.util.Random;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -61,8 +57,7 @@ public class SeedDataRunner implements CommandLineRunner {
     private final VideoGenerationJobRepository videoGenerationJobRepository;
     private final SourceSetDocumentRepository sourceSetDocumentRepository;
     private final SourceSetRepository sourceSetRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Random random = new Random();
+
     private final String infraBaseUrl;
     private final RestClient restClient;
     private UUID seedDocumentId = null; // 시드 문서 ID 캐시
@@ -294,20 +289,54 @@ public class SeedDataRunner implements CommandLineRunner {
             log.info("Video already exists for personal info education. Skipping.");
             return;
         }
-        
-        // 영상 1개 생성
-        var video = com.ctrlf.education.video.entity.EducationVideo.create(
+
+        // =========================================================
+        // 1) 영상 컨텐츠(DRAFT) 생성 (AdminVideoController.createVideo 흐름과 유사)
+        // =========================================================
+        UUID creatorUuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        var video = com.ctrlf.education.video.entity.EducationVideo.createDraft(
             personalInfoEducation.getId(),
-            "개인정보 보호 교육 - 기본편",
-            "s3://ctrl-s3/videos/bc36db11-d500-4a7d-9a13-af71c06d5f5c.mp4",
-            1200,
-            1,
-            "PUBLISHED"
+            "개인정보 보호 교육 - 테스트 컨텐츠(시드)",
+            creatorUuid
         );
         video.setOrderIndex(0);
         educationVideoRepository.save(video);
-        
-        log.info("Seed created: 1 video for personal info education, videoId={}", video.getId());
+
+        // =========================================================
+        // 2) SourceSet + Document 연결 (렌더-spec/추적용)
+        // =========================================================
+        UUID sourceSetId = createSourceSetForVideo(
+            personalInfoEducation.getId(),
+            video.getId(),
+            creatorUuid.toString()
+        );
+        video.setSourceSetId(sourceSetId);
+
+        // =========================================================
+        // 3) Script + Chapter/Scene 생성
+        // =========================================================
+        UUID scriptId = insertScript(
+            personalInfoEducation.getId(),
+            null,
+            "{\"chapters\":[]}", // raw_payload는 참고용 (실제 렌더-spec은 chapter/scene 테이블 기반)
+            1,
+            "개인정보 보호 교육 스크립트(시드)"
+        );
+        seedChaptersAndScenes(scriptId);
+
+        video.setScriptId(scriptId);
+
+        // =========================================================
+        // 4) 렌더링 테스트를 위해 상태를 SCRIPT_APPROVED로 설정
+        //    (VideoService.createVideoJob()에서 이 상태여야 렌더링 가능)
+        // =========================================================
+        video.setStatus("SCRIPT_APPROVED");
+        educationVideoRepository.save(video);
+
+        log.info(
+            "Seed created: video + sourceset + script. eduId={}, videoId={}, sourceSetId={}, scriptId={}",
+            personalInfoEducation.getId(), video.getId(), sourceSetId, scriptId
+        );
     }
     
     /**

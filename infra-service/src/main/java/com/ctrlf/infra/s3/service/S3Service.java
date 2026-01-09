@@ -82,6 +82,9 @@ public class S3Service {
         return new PresignUploadResult(uploadUrl, fileUrl);
     }
 
+    // (objectKey 지정형 presign은 education-service에서 object_key를 무시하고
+    //  기존 /upload(type, filename) API를 사용하는 방식으로 처리)
+
     /**
      * Presign 업로드 결과 (URL과 파일 URL 포함).
      */
