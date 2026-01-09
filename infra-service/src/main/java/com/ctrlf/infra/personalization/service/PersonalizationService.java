@@ -853,7 +853,7 @@ public class PersonalizationService {
         } catch (Exception e) {
             log.error("Error in Q11 handler: userId={}, error={}", userId, e.getMessage(), e);
             return createErrorResponse("Q11", periodStart, periodEnd, updatedAt,
-                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+                "SERVICE_ERROR", "조회 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
         }
     }
 
@@ -1311,13 +1311,65 @@ public class PersonalizationService {
             // 1. 사용자의 직원 정보 조회 (부서 UUID 확인)
             Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
 
+            // departmentUuid가 없으면 단순 부서명만 반환 (Q21과 동일한 로직)
             if (employee == null || employee.getDepartmentUuid() == null) {
+                log.debug("Q17: departmentUuid가 없어 단순 부서명 조회로 전환");
+                String department = null;
+                
+                // Employee의 departmentName 확인
+                if (employee != null && employee.getDepartmentName() != null && !employee.getDepartmentName().isBlank()) {
+                    department = employee.getDepartmentName();
+                    log.debug("Q17: DB에서 부서 정보 조회 성공 (departmentName): department={}", department);
+                } 
+                // departmentName이 없지만 departmentUuid가 있으면 Department 테이블에서 조회
+                else if (employee != null && employee.getDepartmentUuid() != null) {
+                    Department dept = departmentRepository.findById(employee.getDepartmentUuid()).orElse(null);
+                    if (dept != null && dept.getDepartmentName() != null && !dept.getDepartmentName().isBlank()) {
+                        department = dept.getDepartmentName();
+                        log.debug("Q17: Department 테이블에서 부서 정보 조회 성공: department={}", department);
+                    }
+                }
+                
+                // DB에서 찾지 못했으면 Keycloak에서 조회
+                if (department == null || department.isBlank()) {
+                    log.debug("Q17: DB에 부서 정보가 없어 Keycloak에서 조회 시도");
+                    Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+                    if (keycloakUserInfo != null) {
+                        Object deptObj = keycloakUserInfo.get("department");
+                        if (deptObj != null) {
+                            String deptStr = deptObj.toString();
+                            if (!deptStr.isBlank()) {
+                                department = deptStr;
+                                log.debug("Q17: Keycloak에서 부서 정보 조회 성공: department={}", department);
+                            }
+                        }
+                    }
+                }
+                
+                if (department == null || department.isBlank()) {
+                    log.warn("Q17: 부서 정보를 찾을 수 없음: userId={}, employee={}", userId, employee != null);
+                    return new ResolveResponse(
+                        "Q17", periodStart, periodEnd, updatedAt,
+                        Map.of(),
+                        List.of(),
+                        Map.of(),
+                        new ErrorInfo("NOT_FOUND", "소속 부서 정보를 찾을 수 없어요.")
+                    );
+                }
+                
+                // 단순 부서명만 반환
+                Map<String, Object> extra = new HashMap<>();
+                String employeeName = getEmployeeName(userUuid, userId);
+                if (employeeName != null) {
+                    extra.put("employee_name", employeeName);
+                }
+                
                 return new ResolveResponse(
                     "Q17", periodStart, periodEnd, updatedAt,
-                    Map.of(),
+                    Map.of("department_name", department),
                     List.of(),
-                    Map.of(),
-                    new ErrorInfo("NOT_FOUND", "소속 부서 정보를 찾을 수 없어요.")
+                    extra,
+                    null
                 );
             }
 
@@ -1616,22 +1668,56 @@ public class PersonalizationService {
 
         try {
             UUID userUuid = UUID.fromString(userId);
+            log.debug("Q21: userId를 UUID로 변환 성공: userUuid={}", userUuid);
             
             // DB에서 직원 정보 조회
             Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
+            log.debug("Q21: DB에서 직원 정보 조회 결과: employee={}, departmentName={}, departmentUuid={}", 
+                employee != null, 
+                employee != null ? employee.getDepartmentName() : "null",
+                employee != null && employee.getDepartmentUuid() != null ? employee.getDepartmentUuid() : "null");
             String department = null;
             
-            if (employee != null && employee.getDepartmentName() != null) {
+            // 1. Employee의 departmentName이 있으면 사용
+            if (employee != null && employee.getDepartmentName() != null && !employee.getDepartmentName().isBlank()) {
                 department = employee.getDepartmentName();
-            } else {
-                // Keycloak에서 부서 정보 조회
+                log.debug("Q21: DB에서 부서 정보 조회 성공 (departmentName): department={}", department);
+            } 
+            // 2. departmentName이 없지만 departmentUuid가 있으면 Department 테이블에서 조회
+            else if (employee != null && employee.getDepartmentUuid() != null) {
+                Department dept = departmentRepository.findById(employee.getDepartmentUuid()).orElse(null);
+                if (dept != null && dept.getDepartmentName() != null && !dept.getDepartmentName().isBlank()) {
+                    department = dept.getDepartmentName();
+                    log.debug("Q21: Department 테이블에서 부서 정보 조회 성공: department={}", department);
+                } else {
+                    log.debug("Q21: Department 테이블에서 부서 정보를 찾을 수 없음: departmentUuid={}", employee.getDepartmentUuid());
+                }
+            }
+            
+            // 3. DB에서 찾지 못했으면 Keycloak에서 조회
+            if (department == null || department.isBlank()) {
+                log.debug("Q21: DB에 부서 정보가 없어 Keycloak에서 조회 시도");
                 Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
                 if (keycloakUserInfo != null) {
-                    department = (String) keycloakUserInfo.getOrDefault("department", "");
+                    Object deptObj = keycloakUserInfo.get("department");
+                    if (deptObj != null) {
+                        String deptStr = deptObj.toString();
+                        if (!deptStr.isBlank()) {
+                            department = deptStr;
+                            log.debug("Q21: Keycloak에서 부서 정보 조회 성공: department={}", department);
+                        } else {
+                            log.debug("Q21: Keycloak의 department 값이 빈 문자열");
+                        }
+                    } else {
+                        log.debug("Q21: Keycloak에 department 키가 없음");
+                    }
+                } else {
+                    log.debug("Q21: Keycloak에서 사용자 정보를 가져오지 못함");
                 }
             }
             
             if (department == null || department.isBlank()) {
+                log.warn("부서 정보를 찾을 수 없음: userId={}, employee={}", userId, employee != null);
                 return createErrorResponse("Q21", periodStart, periodEnd, updatedAt,
                     "NOT_FOUND", "부서 정보를 찾을 수 없어요.");
             }
@@ -1650,13 +1736,13 @@ public class PersonalizationService {
                 null
             );
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid userId format: {}", userId);
+            log.warn("Invalid userId format: userId={}, error={}", userId, e.getMessage());
             return createErrorResponse("Q21", periodStart, periodEnd, updatedAt,
                 "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
         } catch (Exception e) {
-            log.error("Error in Q21 handler: userId={}", userId, e);
+            log.error("Error in Q21 handler: userId={}, error={}", userId, e.getMessage(), e);
             return createErrorResponse("Q21", periodStart, periodEnd, updatedAt,
-                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+                "SERVICE_ERROR", "조회 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
         }
     }
 
@@ -1666,22 +1752,41 @@ public class PersonalizationService {
 
         try {
             UUID userUuid = UUID.fromString(userId);
+            log.debug("Q22: userId를 UUID로 변환 성공: userUuid={}", userUuid);
             
             // DB에서 직원 정보 조회
             Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
+            log.debug("Q22: DB에서 직원 정보 조회 결과: employee={}, position={}", 
+                employee != null, employee != null ? employee.getPosition() : "null");
             String position = null;
             
-            if (employee != null && employee.getPosition() != null) {
+            if (employee != null && employee.getPosition() != null && !employee.getPosition().isBlank()) {
                 position = employee.getPosition();
+                log.debug("Q22: DB에서 직급 정보 조회 성공: position={}", position);
             } else {
+                log.debug("Q22: DB에 직급 정보가 없어 Keycloak에서 조회 시도");
                 // Keycloak에서 직급 정보 조회
                 Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
                 if (keycloakUserInfo != null) {
-                    position = (String) keycloakUserInfo.getOrDefault("position", "");
+                    Object posObj = keycloakUserInfo.get("position");
+                    if (posObj != null) {
+                        String posStr = posObj.toString();
+                        if (!posStr.isBlank()) {
+                            position = posStr;
+                            log.debug("Q22: Keycloak에서 직급 정보 조회 성공: position={}", position);
+                        } else {
+                            log.debug("Q22: Keycloak의 position 값이 빈 문자열");
+                        }
+                    } else {
+                        log.debug("Q22: Keycloak에 position 키가 없음");
+                    }
+                } else {
+                    log.debug("Q22: Keycloak에서 사용자 정보를 가져오지 못함");
                 }
             }
             
             if (position == null || position.isBlank()) {
+                log.warn("직급 정보를 찾을 수 없음: userId={}, employee={}", userId, employee != null);
                 return createErrorResponse("Q22", periodStart, periodEnd, updatedAt,
                     "NOT_FOUND", "직급 정보를 찾을 수 없어요.");
             }
@@ -1700,13 +1805,13 @@ public class PersonalizationService {
                 null
             );
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid userId format: {}", userId);
+            log.warn("Invalid userId format: userId={}, error={}", userId, e.getMessage());
             return createErrorResponse("Q22", periodStart, periodEnd, updatedAt,
                 "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
         } catch (Exception e) {
-            log.error("Error in Q22 handler: userId={}", userId, e);
+            log.error("Error in Q22 handler: userId={}, error={}", userId, e.getMessage(), e);
             return createErrorResponse("Q22", periodStart, periodEnd, updatedAt,
-                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+                "SERVICE_ERROR", "조회 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
         }
     }
 
@@ -1716,25 +1821,52 @@ public class PersonalizationService {
 
         try {
             UUID userUuid = UUID.fromString(userId);
+            log.debug("Q23: userId를 UUID로 변환 성공: userUuid={}", userUuid);
             
             // DB에서 직원 정보 조회
             Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
+            log.debug("Q23: DB에서 직원 정보 조회 결과: employee={}, email={}", 
+                employee != null, employee != null ? employee.getEmail() : "null");
             String email = null;
             
-            if (employee != null && employee.getEmail() != null) {
+            if (employee != null && employee.getEmail() != null && !employee.getEmail().isBlank()) {
                 email = employee.getEmail();
+                log.debug("Q23: DB에서 이메일 정보 조회 성공: email={}", email);
             } else {
+                log.debug("Q23: DB에 이메일 정보가 없어 Keycloak에서 조회 시도");
                 // Keycloak에서 이메일 정보 조회
                 Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
                 if (keycloakUserInfo != null) {
-                    email = (String) keycloakUserInfo.getOrDefault("email", "");
-                    if (email.isBlank()) {
-                        email = (String) keycloakUserInfo.getOrDefault("companyEmail", "");
+                    Object emailObj = keycloakUserInfo.get("email");
+                    if (emailObj != null) {
+                        String emailStr = emailObj.toString();
+                        if (!emailStr.isBlank()) {
+                            email = emailStr;
+                            log.debug("Q23: Keycloak에서 이메일 정보 조회 성공: email={}", email);
+                        } else {
+                            log.debug("Q23: Keycloak의 email 값이 빈 문자열");
+                        }
+                    } else {
+                        log.debug("Q23: Keycloak에 email 키가 없음, companyEmail 시도");
                     }
+                    // email이 없으면 companyEmail 시도
+                    if ((email == null || email.isBlank()) && keycloakUserInfo.containsKey("companyEmail")) {
+                        Object companyEmailObj = keycloakUserInfo.get("companyEmail");
+                        if (companyEmailObj != null) {
+                            String companyEmailStr = companyEmailObj.toString();
+                            if (!companyEmailStr.isBlank()) {
+                                email = companyEmailStr;
+                                log.debug("Q23: Keycloak에서 companyEmail 조회 성공: email={}", email);
+                            }
+                        }
+                    }
+                } else {
+                    log.debug("Q23: Keycloak에서 사용자 정보를 가져오지 못함");
                 }
             }
             
             if (email == null || email.isBlank()) {
+                log.warn("이메일 정보를 찾을 수 없음: userId={}, employee={}", userId, employee != null);
                 return createErrorResponse("Q23", periodStart, periodEnd, updatedAt,
                     "NOT_FOUND", "이메일 정보를 찾을 수 없어요.");
             }
@@ -1753,13 +1885,13 @@ public class PersonalizationService {
                 null
             );
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid userId format: {}", userId);
+            log.warn("Invalid userId format: userId={}, error={}", userId, e.getMessage());
             return createErrorResponse("Q23", periodStart, periodEnd, updatedAt,
                 "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
         } catch (Exception e) {
-            log.error("Error in Q23 handler: userId={}", userId, e);
+            log.error("Error in Q23 handler: userId={}, error={}", userId, e.getMessage(), e);
             return createErrorResponse("Q23", periodStart, periodEnd, updatedAt,
-                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+                "SERVICE_ERROR", "조회 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
         }
     }
 
@@ -1773,10 +1905,24 @@ public class PersonalizationService {
      * @return 사용자 정보 Map (department, position, email 포함), 조회 실패 시 null
      */
     private Map<String, Object> getUserInfoFromKeycloak(String userId) {
+        log.debug("getUserInfoFromKeycloak 호출: userId={}", userId);
         try {
-            return keycloakAdminService.getUserInfoForPersonalization(userId);
+            Map<String, Object> userInfo = keycloakAdminService.getUserInfoForPersonalization(userId);
+            if (userInfo == null) {
+                log.warn("Keycloak에서 사용자 정보가 null로 반환됨: userId={}", userId);
+            } else {
+                log.debug("Keycloak 사용자 정보 조회 성공: userId={}, department={}, position={}, email={}", 
+                    userId, 
+                    userInfo.get("department"), 
+                    userInfo.get("position"), 
+                    userInfo.get("email"));
+            }
+            return userInfo;
+        } catch (IllegalStateException e) {
+            log.error("Keycloak Admin API 호출 실패: userId={}, error={}", userId, e.getMessage(), e);
+            return null;
         } catch (Exception e) {
-            log.error("Keycloak에서 사용자 정보 조회 실패: userId={}, error={}", userId, e.getMessage(), e);
+            log.error("Keycloak에서 사용자 정보 조회 중 예상치 못한 오류: userId={}, error={}", userId, e.getMessage(), e);
             return null;
         }
     }
