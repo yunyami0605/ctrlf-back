@@ -21,6 +21,11 @@ dependencies {
     // .env 파일 수동 로드용
     implementation 'io.github.cdimascio:java-dotenv:5.2.2'
 
+    // Elasticsearch 클라이언트
+    implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch:3.3.3'
+    // Elasticsearch Java API Client를 위한 RestClient
+    implementation 'org.elasticsearch.client:elasticsearch-rest-client:8.11.0'
+
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     implementation 'org.springframework.boot:spring-boot-devtools:3.3.3'
 }

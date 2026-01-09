@@ -18,6 +18,11 @@ dependencies {
   // 🔽 WebClient / Mono 사용을 위한 WebFlux (필수)
   implementation 'org.springframework.boot:spring-boot-starter-webflux:3.3.3'
 
+  // Elasticsearch 클라이언트
+  implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch:3.3.3'
+  // Elasticsearch Java API Client를 위한 RestClient
+  implementation 'org.elasticsearch.client:elasticsearch-rest-client:8.11.0'
+
   implementation 'org.flywaydb:flyway-core'
   implementation 'org.flywaydb:flyway-database-postgresql:10.10.0'
   implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'

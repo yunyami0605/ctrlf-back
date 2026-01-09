@@ -32,6 +32,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatSessionRepository chatSessionRepository;
+    private final com.ctrlf.chat.elasticsearch.service.FaqLogElasticsearchService faqLogElasticsearchService;
+    private final com.ctrlf.chat.elasticsearch.service.ChatLogElasticsearchService chatLogElasticsearchService;
     private final ChatAiClient chatAiClient;
 
     @Override
@@ -59,6 +61,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         // department 설정
         userMessage.setDepartment(department);
         chatMessageRepository.save(userMessage);
+        
+        // Elasticsearch chat_log 인덱스에 실시간 저장
+        chatLogElasticsearchService.saveChatLog(userMessage, session, userId.toString(), domain, department);
 
         // 2️⃣ AI Gateway 호출 (응답 시간 측정)
         // Backend는 Frontend로부터 전달받은 model 값을 그대로 전달 (해석하지 않음)
@@ -142,6 +147,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         assistantMessage.setResponseTimeMs(responseTime);
         assistantMessage.setIsError(false);
         chatMessageRepository.save(assistantMessage);
+        
+        // Elasticsearch chat_log 인덱스에 실시간 저장
+        chatLogElasticsearchService.saveChatLog(assistantMessage, session, userId.toString(), domain, department);
 
         // 4️⃣ USER 메시지에 PII 감지 정보 업데이트
         // AI Gateway 응답의 meta.masked 정보를 user 메시지의 piiDetected에 반영
@@ -416,6 +424,20 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     @Override
     @Transactional(readOnly = true)
     public com.ctrlf.chat.dto.response.AdminMessageLogResponse getAdminMessages(
+        String domain,
+        Integer daysBack
+    ) {
+        // Elasticsearch에서 FAQ 로그 조회 (faq_log 인덱스)
+        return faqLogElasticsearchService.getFaqLogs(domain, daysBack);
+    }
+
+    /**
+     * 기존 PostgreSQL 조회 방식 (레거시, 참고용)
+     * 
+     * @deprecated Elasticsearch faq_log 인덱스에서 조회하도록 변경됨
+     */
+    @Deprecated
+    private com.ctrlf.chat.dto.response.AdminMessageLogResponse getAdminMessagesFromPostgres(
         String domain,
         Integer daysBack
     ) {

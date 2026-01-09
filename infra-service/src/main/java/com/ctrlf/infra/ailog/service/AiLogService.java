@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AiLogService {
 
     private final AiLogRepository aiLogRepository;
+    private final com.ctrlf.infra.elasticsearch.service.ChatLogElasticsearchService chatLogElasticsearchService;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = 
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -58,6 +60,8 @@ public class AiLogService {
         // 중복 체크를 위한 Set (traceId + conversationId + turnId 조합)
         java.util.Set<String> duplicateKeys = new java.util.HashSet<>();
         List<AiLog> logsToSave = new ArrayList<>();
+        // Elasticsearch 저장을 위한 원본 LogItem 매핑 (traceId+conversationId+turnId -> LogItem)
+        java.util.Map<String, AiLogDtos.LogItem> logItemMap = new java.util.HashMap<>();
         Instant receivedAt = Instant.now();
 
         for (int i = 0; i < request.getLogs().size(); i++) {
@@ -137,6 +141,18 @@ public class AiLogService {
                 aiLog.setReceivedAt(receivedAt);
 
                 logsToSave.add(aiLog);
+                
+                // Elasticsearch 저장을 위한 원본 LogItem 매핑 (traceId+conversationId+turnId -> LogItem)
+                String mapKey = buildDuplicateKey(
+                    logItem.getTraceId(),
+                    logItem.getConversationId(),
+                    logItem.getTurnId()
+                );
+                if (mapKey == null) {
+                    // 키를 생성할 수 없으면 임시로 UUID 사용 (실제로는 거의 발생하지 않음)
+                    mapKey = UUID.randomUUID().toString();
+                }
+                logItemMap.put(mapKey, logItem);
 
             } catch (Exception e) {
                 failed++;
@@ -156,7 +172,37 @@ public class AiLogService {
             try {
                 aiLogRepository.saveAll(logsToSave);
                 saved = logsToSave.size();
-                log.info("[AI 로그 Bulk 저장] Bulk insert 완료: saved={}", saved);
+                log.info("[AI 로그 Bulk 저장] PostgreSQL Bulk insert 완료: saved={}", saved);
+                
+                // Elasticsearch에도 저장 (실패해도 PostgreSQL 저장은 성공으로 처리)
+                int esSaved = 0;
+                for (AiLog aiLog : logsToSave) {
+                    try {
+                        // 원본 LogItem 찾기 (traceId+conversationId+turnId로 매칭)
+                        String mapKey = buildDuplicateKey(
+                            aiLog.getTraceId(),
+                            aiLog.getConversationId(),
+                            aiLog.getTurnId()
+                        );
+                        
+                        if (mapKey != null && logItemMap.containsKey(mapKey)) {
+                            AiLogDtos.LogItem logItem = logItemMap.get(mapKey);
+                            chatLogElasticsearchService.saveChatLog(
+                                logItem,
+                                aiLog.getId().toString()
+                            );
+                            esSaved++;
+                        } else {
+                            log.warn("[AI 로그 Bulk 저장] Elasticsearch 저장: 원본 LogItem을 찾을 수 없음: id={}, traceId={}, conversationId={}, turnId={}",
+                                aiLog.getId(), aiLog.getTraceId(), aiLog.getConversationId(), aiLog.getTurnId());
+                        }
+                    } catch (Exception e) {
+                        // Elasticsearch 저장 실패는 로그만 남기고 계속 진행
+                        log.warn("[AI 로그 Bulk 저장] Elasticsearch 저장 실패: id={}, traceId={}, error={}",
+                            aiLog.getId(), aiLog.getTraceId(), e.getMessage());
+                    }
+                }
+                log.info("[AI 로그 Bulk 저장] Elasticsearch 저장 완료: esSaved={}, total={}", esSaved, saved);
             } catch (Exception e) {
                 log.error("[AI 로그 Bulk 저장] Bulk insert 실패: count={}, error={}", 
                     logsToSave.size(), e.getMessage(), e);
@@ -165,6 +211,26 @@ public class AiLogService {
                     try {
                         aiLogRepository.save(aiLogItem);
                         saved++;
+                        
+                        // Elasticsearch에도 저장 시도
+                        try {
+                            String mapKey = buildDuplicateKey(
+                                aiLogItem.getTraceId(),
+                                aiLogItem.getConversationId(),
+                                aiLogItem.getTurnId()
+                            );
+                            
+                            if (mapKey != null && logItemMap.containsKey(mapKey)) {
+                                AiLogDtos.LogItem logItem = logItemMap.get(mapKey);
+                                chatLogElasticsearchService.saveChatLog(
+                                    logItem,
+                                    aiLogItem.getId().toString()
+                                );
+                            }
+                        } catch (Exception ex) {
+                            log.warn("[AI 로그 Bulk 저장] Elasticsearch 저장 실패: id={}, error={}",
+                                aiLogItem.getId(), ex.getMessage());
+                        }
                     } catch (Exception ex) {
                         failed++;
                         log.error("[AI 로그 Bulk 저장] 개별 저장 실패: traceId={}, error={}", 
@@ -206,6 +272,9 @@ public class AiLogService {
 
     /**
      * 관리자 대시보드 로그 목록 조회
+     * 
+     * <p>Elasticsearch chat_log 인덱스에서 실시간 채팅 로그를 조회합니다.</p>
+     * <p>백엔드에서 채팅 메시지 저장 시 자동으로 저장된 로그를 조회합니다.</p>
      */
     @Transactional(readOnly = true)
     public AiLogDtos.PageResponse<AiLogDtos.LogListItem> getLogs(
@@ -222,128 +291,24 @@ public class AiLogService {
         Integer size,
         String sort
     ) {
-        try {
-            log.info("로그 조회 요청: period={}, startDate={}, endDate={}, department={}, domain={}, route={}, model={}, onlyError={}, hasPiiOnly={}, page={}, size={}, sort={}",
-                period, startDateStr, endDateStr, department, domain, route, model, onlyError, hasPiiOnly, page, size, sort);
+        log.info("[AI 로그 조회] Elasticsearch에서 조회: period={}, startDate={}, endDate={}, department={}, domain={}, route={}, model={}, onlyError={}, hasPiiOnly={}, page={}, size={}, sort={}",
+            period, startDateStr, endDateStr, department, domain, route, model, onlyError, hasPiiOnly, page, size, sort);
 
-            // 기간 계산: startDate/endDate가 있으면 우선 사용, 없으면 period 사용
-            Instant startDate;
-            Instant endDate;
-            
-            if (startDateStr != null && !startDateStr.isBlank()) {
-                // startDate 파싱
-                try {
-                    startDate = Instant.parse(startDateStr);
-                    // endDate가 있으면 사용, 없으면 현재 시각 사용
-                    if (endDateStr != null && !endDateStr.isBlank()) {
-                        endDate = Instant.parse(endDateStr);
-                    } else {
-                        endDate = Instant.now();  // 최신 데이터까지 포함
-                    }
-                    log.debug("날짜 파싱 성공: startDate={}, endDate={}", startDate, endDate);
-                } catch (Exception e) {
-                    log.warn("날짜 파싱 실패: startDate={}, endDate={}, error={}", 
-                        startDateStr, endDateStr, e.getMessage(), e);
-                    // 파싱 실패 시 period 사용
-                    Instant[] periodRange = calculatePeriodRange(period);
-                    startDate = periodRange[0];
-                    endDate = periodRange[1];
-                }
-            } else {
-                // period 사용
-                Instant[] periodRange = calculatePeriodRange(period);
-                startDate = periodRange[0];
-                endDate = periodRange[1];
-                log.info("period 사용: startDate={}, endDate={}", startDate, endDate);
-            }
-
-            // 페이징 및 정렬 설정
-            int pageNumber = (page != null && page >= 0) ? page : 0;
-            int pageSize = (size != null && size > 0) ? Math.min(size, 100) : 20;
-            
-            Pageable pageable;
-            if (sort != null && !sort.isBlank()) {
-                // sort 파라미터 파싱 (예: "createdAt,desc" 또는 "createdAt,asc")
-                try {
-                    String[] sortParts = sort.split(",");
-                    if (sortParts.length == 0) {
-                        throw new IllegalArgumentException("정렬 파라미터 형식이 잘못되었습니다: " + sort);
-                    }
-                    String sortField = sortParts[0].trim();
-                    Sort.Direction direction = sortParts.length > 1 && 
-                        "desc".equalsIgnoreCase(sortParts[1].trim()) 
-                        ? Sort.Direction.DESC 
-                        : Sort.Direction.ASC;
-                    
-                    // 필드명 검증 (보안을 위해 허용된 필드만)
-                    if (isValidSortField(sortField)) {
-                        pageable = PageRequest.of(pageNumber, pageSize, Sort.by(direction, sortField));
-                        log.debug("정렬 적용: field={}, direction={}", sortField, direction);
-                    } else {
-                        log.warn("잘못된 정렬 필드: {}, 기본 정렬 사용", sortField);
-                        pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-                    }
-                } catch (Exception e) {
-                    log.warn("정렬 파싱 실패: sort={}, error={}", sort, e.getMessage(), e);
-                    pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-                }
-            } else {
-                // 기본 정렬: createdAt 내림차순
-                pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-            }
-
-            // Specification을 사용하여 동적 쿼리 생성
-            Specification<AiLog> spec = buildSpecification(
-                startDate, endDate, department, domain, route, model, onlyError, hasPiiOnly
-            );
-            
-            log.info("DB 조회 시작: startDate={}, endDate={}, department={}, domain={}, route={}, model={}, onlyError={}, hasPiiOnly={}, pageNumber={}, pageSize={}", 
-                startDate, endDate, department, domain, route, model, onlyError, hasPiiOnly, pageNumber, pageSize);
-            
-            Page<AiLog> logPage;
-            try {
-                logPage = aiLogRepository.findAll(spec, pageable);
-                log.info("DB 조회 완료: totalElements={}, totalPages={}, contentSize={}, pageNumber={}, pageSize={}", 
-                    logPage.getTotalElements(), logPage.getTotalPages(), logPage.getContent().size(), logPage.getNumber(), logPage.getSize());
-            } catch (Exception e) {
-                log.error("DB 조회 중 예외 발생: startDate={}, endDate={}, error={}", 
-                    startDate, endDate, e.getMessage(), e);
-                throw e;
-            }
-
-            // DTO 변환
-            List<AiLogDtos.LogListItem> content = logPage.getContent().stream()
-                .map(this::convertToLogListItem)
-                .toList();
-
-            // 최신 데이터 확인을 위한 디버깅 로그
-            if (!content.isEmpty()) {
-                log.info("조회된 로그 중 가장 최신: createdAt={}, userId={}, domain={}, route={}", 
-                    content.get(0).getCreatedAt(), content.get(0).getUserId(), 
-                    content.get(0).getDomain(), content.get(0).getRoute());
-            }
-            
-            // DB에 실제로 최신 데이터가 있는지 확인 (최근 1시간 내 데이터)
-            long recentCount = aiLogRepository.findAll((root, query, cb) -> {
-                Instant oneHourAgo = Instant.now().minusSeconds(3600);
-                return cb.greaterThanOrEqualTo(root.get("createdAt"), oneHourAgo);
-            }).size();
-            log.info("최근 1시간 내 DB에 저장된 로그 개수: {}", recentCount);
-
-            log.info("로그 조회 성공: totalElements={}, contentSize={}, startDate={}, endDate={}", 
-                logPage.getTotalElements(), content.size(), startDate, endDate);
-
-            return new AiLogDtos.PageResponse<>(
-                content,
-                logPage.getTotalElements(),
-                logPage.getTotalPages(),
-                logPage.getNumber(),
-                logPage.getSize()
-            );
-        } catch (Exception e) {
-            log.error("로그 조회 중 오류 발생", e);
-            throw new RuntimeException("로그 조회 실패: " + e.getMessage(), e);
-        }
+        // Elasticsearch에서 조회 (실시간 채팅 로그)
+        return chatLogElasticsearchService.getLogs(
+            period,
+            startDateStr,
+            endDateStr,
+            department,
+            domain,
+            route,
+            model,
+            onlyError,
+            hasPiiOnly,
+            page,
+            size,
+            sort
+        );
     }
 
     /**

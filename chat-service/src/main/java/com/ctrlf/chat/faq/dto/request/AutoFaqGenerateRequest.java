@@ -1,6 +1,7 @@
 package com.ctrlf.chat.faq.dto.request;
 
 import lombok.Getter;
+import lombok.Setter;
 
 /**
  * 자동 FAQ 생성 요청 DTO
@@ -8,6 +9,7 @@ import lombok.Getter;
  * 사용자 질문 로그를 분석하여 자동으로 FAQ 후보를 선정하고 초안을 생성합니다.
  */
 @Getter
+@Setter
 public class AutoFaqGenerateRequest {
 
     /** 도메인 필터 (선택, 예: SEC_POLICY, PII_PRIVACY) */

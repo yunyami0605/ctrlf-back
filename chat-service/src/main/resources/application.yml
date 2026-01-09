@@ -35,10 +35,15 @@ app:
     description: Chat endpoints with JWT authorize
     security:
       enabled: true
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+    username: ${ELASTICSEARCH_USERNAME:}
+    password: ${ELASTICSEARCH_PASSWORD:}
+    chat-log-index: chat_log
+    faq-log-index: ${ELASTICSEARCH_FAQ_LOG_INDEX:ctrlf-faq-log-*}
 
 # A/B 테스트 설정
 ab-test:
   # OpenAI 모델 할당 비율 (0.0 ~ 1.0)
   # 예: 0.5 = 50:50, 0.7 = 70:30 (openai:sroberta)
   openai-ratio: 0.5
-

@@ -28,6 +28,7 @@ public class ChatStreamService {
     private final ChatAiFacade chatAiFacade;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatSessionRepository chatSessionRepository;
+    private final com.ctrlf.chat.elasticsearch.service.ChatLogElasticsearchService chatLogElasticsearchService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // AI 최대 지연 시간(61초) + 여유 시간을 고려하여 180초로 설정
@@ -83,7 +84,7 @@ public class ChatStreamService {
                 );
 
             StringBuilder answerBuf = new StringBuilder();
-            StreamContext context = new StreamContext(emitter, assistant, answerBuf);
+            StreamContext context = new StreamContext(emitter, assistant, answerBuf, session, lastUser);
 
             Disposable subscription =
                 chatAiFacade.streamChat(req).subscribe(
@@ -117,7 +118,9 @@ public class ChatStreamService {
             StreamContext errorContext = new StreamContext(
                 emitter,
                 tempAssistant != null ? tempAssistant : new ChatMessage(),
-                new StringBuilder()
+                new StringBuilder(),
+                null,  // 에러 발생 시 세션 정보 없음
+                null   // 에러 발생 시 lastUser 정보 없음
             );
             handleStreamError(e, errorContext);
         }
@@ -240,8 +243,20 @@ public class ChatStreamService {
             context.assistant.setIsError(true);
             // 에러 정보는 로그에만 기록
             log.error("AI server error: code={}, message={}", errorCode, errorMessage);
-            
+
             chatMessageRepository.save(context.assistant);
+            
+            // Elasticsearch chat_log 인덱스에 실시간 저장 (에러 포함)
+            if (context.session != null) {
+                String department = context.lastUser != null ? context.lastUser.getDepartment() : null;
+                chatLogElasticsearchService.saveChatLog(
+                    context.assistant,
+                    context.session,
+                    context.session.getUserUuid().toString(),
+                    context.session.getDomain(),
+                    department
+                );
+            }
         } catch (Exception e) {
             log.error("Failed to process error event", e);
         } finally {
@@ -275,6 +290,18 @@ public class ChatStreamService {
             context.assistant.setIsError(false);
             chatMessageRepository.save(context.assistant);
             
+            // Elasticsearch chat_log 인덱스에 실시간 저장
+            if (context.session != null) {
+                String department = context.lastUser != null ? context.lastUser.getDepartment() : null;
+                chatLogElasticsearchService.saveChatLog(
+                    context.assistant,
+                    context.session,
+                    context.session.getUserUuid().toString(),
+                    context.session.getDomain(),
+                    department
+                );
+            }
+            
             log.debug("Message saved with metrics: messageId={}, tokens={}, elapsedMs={}",
                 context.assistant.getId(),
                 context.assistant.getTokensOut(),
@@ -295,6 +322,18 @@ public class ChatStreamService {
                 context.assistant.updateContent(context.answerBuf.toString());
                 context.assistant.setIsError(false);
                 chatMessageRepository.save(context.assistant);
+                
+                // Elasticsearch chat_log 인덱스에 실시간 저장
+                if (context.session != null) {
+                    String department = context.lastUser != null ? context.lastUser.getDepartment() : null;
+                    chatLogElasticsearchService.saveChatLog(
+                        context.assistant,
+                        context.session,
+                        context.session.getUserUuid().toString(),
+                        context.session.getDomain(),
+                        department
+                    );
+                }
                 
                 log.warn("Stream completed without done event from AI server");
             }
@@ -332,6 +371,18 @@ public class ChatStreamService {
             context.assistant.updateContent(context.answerBuf.toString());
             context.assistant.setIsError(true);
             chatMessageRepository.save(context.assistant);
+            
+            // Elasticsearch chat_log 인덱스에 실시간 저장 (에러 포함)
+            if (context.session != null) {
+                String department = context.lastUser != null ? context.lastUser.getDepartment() : null;
+                chatLogElasticsearchService.saveChatLog(
+                    context.assistant,
+                    context.session,
+                    context.session.getUserUuid().toString(),
+                    context.session.getDomain(),
+                    department
+                );
+            }
         } catch (Exception e) {
             log.warn("Failed to send error event to SSE emitter", e);
         } finally {
@@ -384,13 +435,17 @@ public class ChatStreamService {
         final SseEmitter emitter;
         final ChatMessage assistant;
         final StringBuilder answerBuf;
+        final ChatSession session;  // Elasticsearch 저장용 세션 정보
+        final ChatMessage lastUser;  // 마지막 사용자 메시지 (department 정보 포함)
         String model;
         boolean isDoneReceived = false;
 
-        StreamContext(SseEmitter emitter, ChatMessage assistant, StringBuilder answerBuf) {
+        StreamContext(SseEmitter emitter, ChatMessage assistant, StringBuilder answerBuf, ChatSession session, ChatMessage lastUser) {
             this.emitter = emitter;
             this.assistant = assistant;
             this.answerBuf = answerBuf;
+            this.session = session;
+            this.lastUser = lastUser;
         }
     }
 }

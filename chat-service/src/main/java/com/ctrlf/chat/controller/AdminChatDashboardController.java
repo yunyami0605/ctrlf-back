@@ -1,6 +1,8 @@
 package com.ctrlf.chat.controller;
 
 import com.ctrlf.chat.dto.response.ChatDashboardResponse;
+import com.ctrlf.chat.dto.response.ChatLogDtos;
+import com.ctrlf.chat.elasticsearch.service.ChatLogElasticsearchService;
 import com.ctrlf.chat.service.ChatDashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminChatDashboardController {
 
     private final ChatDashboardService chatDashboardService;
+    private final ChatLogElasticsearchService chatLogElasticsearchService;
 
     @GetMapping("/summary")
     @Operation(
@@ -103,6 +106,68 @@ public class AdminChatDashboardController {
         @RequestParam(value = "refresh", required = false, defaultValue = "false") Boolean refresh
     ) {
         return ResponseEntity.ok(chatDashboardService.getDomainShare(period, dept, refresh));
+    }
+
+    /**
+     * 채팅 로그 목록 조회
+     * 
+     * <p>Elasticsearch chat_log 인덱스에서 채팅 로그를 조회합니다.</p>
+     */
+    @GetMapping("/logs")
+    @Operation(
+        summary = "채팅 로그 목록 조회",
+        description = "Elasticsearch chat_log 인덱스에서 채팅 로그를 필터링 및 페이징하여 조회합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "성공",
+            content = @Content(schema = @Schema(implementation = ChatLogDtos.PageResponse.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "403", description = "권한 없음"),
+        @ApiResponse(responseCode = "500", description = "서버 오류")
+    })
+    public ResponseEntity<ChatLogDtos.PageResponse<ChatLogDtos.ChatLogItem>> getChatLogs(
+        @Parameter(description = "기간 (7 | 30 | 90)", example = "30")
+        @RequestParam(value = "period", required = false) String period,
+        @Parameter(description = "시작 날짜 (ISO 8601)", example = "2025-12-06T15:00:00.000Z")
+        @RequestParam(value = "startDate", required = false) String startDate,
+        @Parameter(description = "종료 날짜 (ISO 8601)", example = "2026-01-06T14:59:59.999Z")
+        @RequestParam(value = "endDate", required = false) String endDate,
+        @Parameter(description = "부서명", example = "총무팀")
+        @RequestParam(value = "department", required = false) String department,
+        @Parameter(description = "도메인 ID", example = "SECURITY")
+        @RequestParam(value = "domain", required = false) String domain,
+        @Parameter(description = "라우트 ID", example = "RAG")
+        @RequestParam(value = "route", required = false) String route,
+        @Parameter(description = "모델 ID", example = "gpt-4o-mini")
+        @RequestParam(value = "model", required = false) String model,
+        @Parameter(description = "에러만 보기", example = "false")
+        @RequestParam(value = "onlyError", required = false) Boolean onlyError,
+        @Parameter(description = "PII 포함만 보기", example = "false")
+        @RequestParam(value = "hasPiiOnly", required = false) Boolean hasPiiOnly,
+        @Parameter(description = "페이지 번호 (기본값: 0)", example = "0")
+        @RequestParam(value = "page", required = false) Integer page,
+        @Parameter(description = "페이지 크기 (기본값: 20)", example = "20")
+        @RequestParam(value = "size", required = false) Integer size,
+        @Parameter(description = "정렬 (예: createdAt,desc)", example = "createdAt,desc")
+        @RequestParam(value = "sort", required = false) String sort
+    ) {
+        return ResponseEntity.ok(chatLogElasticsearchService.getChatLogs(
+            period,
+            startDate,
+            endDate,
+            department,
+            domain,
+            route,
+            model,
+            onlyError,
+            hasPiiOnly,
+            page,
+            size,
+            sort
+        ));
     }
 }
 
