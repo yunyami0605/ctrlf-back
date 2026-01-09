@@ -225,14 +225,17 @@ public class KeycloakAdminClient {
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다: " + userId));
             
-            // attributes에서 department를 추출하여 최상위 레벨에 추가
+            // attributes에서 모든 속성을 추출하여 최상위 레벨에 추가
             @SuppressWarnings("unchecked")
             Map<String, Object> attributes = (Map<String, Object>) user.get("attributes");
             if (attributes != null) {
-                @SuppressWarnings("unchecked")
-                List<String> departmentList = (List<String>) attributes.get("department");
-                if (departmentList != null && !departmentList.isEmpty()) {
-                    user.put("department", departmentList.get(0));
+                // 모든 속성을 최상위 레벨에 추가 (배열의 첫 번째 값 사용)
+                for (Map.Entry<String, Object> entry : attributes.entrySet()) {
+                    @SuppressWarnings("unchecked")
+                    List<String> valueList = (List<String>) entry.getValue();
+                    if (valueList != null && !valueList.isEmpty()) {
+                        user.put(entry.getKey(), valueList.get(0));
+                    }
                 }
             }
             

@@ -36,6 +36,60 @@ public class KeycloakAdminService {
         return user;
     }
 
+    /**
+     * 개인화를 위한 사용자 정보를 조회합니다.
+     * Keycloak에서 사용자 정보를 가져와 모든 속성을 반환합니다.
+     * 
+     * @param userId Keycloak 사용자 ID
+     * @return 사용자 정보 Map (모든 Keycloak 속성 포함: department, position, email, unusedVacationDays, employeeNo, fullName, gender, age, tenureYears, hireYear, overtimeHours, performanceScore, salary, companyEmail, phoneNumber 등)
+     */
+    public Map<String, Object> getUserInfoForPersonalization(String userId) {
+        try {
+            Map<String, Object> user = client.getUser(userId);
+            
+            if (user == null) {
+                log.warn("Keycloak에서 사용자를 찾을 수 없음: userId={}", userId);
+                return null;
+            }
+            
+            // Keycloak에서 가져온 모든 속성을 그대로 반환
+            // 이미 KeycloakAdminClient.getUser()에서 attributes의 모든 값이 최상위 레벨에 추가됨
+            Map<String, Object> result = new java.util.HashMap<>();
+            
+            // 기본 정보
+            result.put("email", user.get("email") != null ? user.get("email") : "");
+            result.put("firstName", user.get("firstName") != null ? user.get("firstName") : "");
+            result.put("lastName", user.get("lastName") != null ? user.get("lastName") : "");
+            
+            // Keycloak attributes에서 추출된 모든 속성 추가
+            result.put("department", user.get("department") != null ? user.get("department") : "");
+            result.put("position", user.get("position") != null ? user.get("position") : "");
+            result.put("unusedVacationDays", user.get("unusedVacationDays") != null ? user.get("unusedVacationDays") : "");
+            result.put("employeeNo", user.get("employeeNo") != null ? user.get("employeeNo") : "");
+            result.put("fullName", user.get("fullName") != null ? user.get("fullName") : "");
+            result.put("gender", user.get("gender") != null ? user.get("gender") : "");
+            result.put("age", user.get("age") != null ? user.get("age") : "");
+            result.put("tenureYears", user.get("tenureYears") != null ? user.get("tenureYears") : "");
+            result.put("hireYear", user.get("hireYear") != null ? user.get("hireYear") : "");
+            result.put("overtimeHours", user.get("overtimeHours") != null ? user.get("overtimeHours") : "");
+            result.put("performanceScore", user.get("performanceScore") != null ? user.get("performanceScore") : "");
+            result.put("salary", user.get("salary") != null ? user.get("salary") : "");
+            result.put("companyEmail", user.get("companyEmail") != null ? user.get("companyEmail") : "");
+            result.put("phoneNumber", user.get("phoneNumber") != null ? user.get("phoneNumber") : "");
+            
+            log.debug("Keycloak 사용자 정보 조회 성공: userId={}, department={}, position={}, email={}", 
+                userId, result.get("department"), result.get("position"), result.get("email"));
+            
+            return result;
+        } catch (IllegalStateException e) {
+            log.error("Keycloak Admin API 호출 실패: userId={}, error={}", userId, e.getMessage(), e);
+            throw e; // 예외를 다시 던져서 상위에서 처리하도록
+        } catch (Exception e) {
+            log.error("Keycloak 사용자 정보 조회 중 예상치 못한 오류: userId={}, error={}", userId, e.getMessage(), e);
+            throw new IllegalStateException("Keycloak에서 사용자 정보를 조회하는 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
+    }
+
     public String createUser(Map<String, Object> payload, String initialPassword, boolean temporary) {
         return client.createUser(payload, initialPassword, temporary);
     }

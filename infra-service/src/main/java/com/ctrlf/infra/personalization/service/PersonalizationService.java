@@ -16,6 +16,7 @@ import com.ctrlf.infra.hr.repository.LeaveHistoryRepository;
 import com.ctrlf.infra.hr.repository.SalaryRepository;
 import com.ctrlf.infra.hr.repository.WelfarePointRepository;
 import com.ctrlf.infra.hr.repository.WelfarePointUsageRepository;
+import com.ctrlf.infra.keycloak.service.KeycloakAdminService;
 import com.ctrlf.infra.personalization.client.EducationServiceClient;
 import com.ctrlf.infra.personalization.client.EducationServiceClient.DepartmentStatsItem;
 import com.ctrlf.infra.personalization.client.EducationServiceClient.LastVideoProgressItem;
@@ -71,6 +72,7 @@ public class PersonalizationService {
     private final SalaryRepository salaryRepository;
     private final EmployeeRepository employeeRepository;
     private final DepartmentRepository departmentRepository;
+    private final KeycloakAdminService keycloakAdminService;
 
     /**
      * 개인화 facts를 조회합니다.
@@ -117,6 +119,9 @@ public class PersonalizationService {
                 case "Q18" -> handleQ18(userId, periodStart, periodEnd, updatedAt, request.getTopic());
                 case "Q19" -> handleQ19(userId, periodStart, periodEnd, updatedAt, request.getTopic());
                 case "Q20" -> handleQ20(userId, periodStart, periodEnd, updatedAt);
+                case "Q21" -> handleQ21(userId, periodStart, periodEnd, updatedAt); // 내 부서만 조회
+                case "Q22" -> handleQ22(userId, periodStart, periodEnd, updatedAt); // 내 직급만 조회
+                case "Q23" -> handleQ23(userId, periodStart, periodEnd, updatedAt); // 내 이메일만 조회
                 default -> createErrorResponse(subIntentId, periodStart, periodEnd, updatedAt,
                     "NOT_IMPLEMENTED", "현재 데모 범위에서는 지원하지 않는 질문이에요.");
             };
@@ -156,10 +161,26 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
+            
+            // Keycloak에서 유저 정보 조회 (직급, 부서, 이메일)
+            Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+            if (keycloakUserInfo != null) {
+                if (keycloakUserInfo.containsKey("department")) {
+                    extra.put("department", keycloakUserInfo.get("department"));
+                }
+                if (keycloakUserInfo.containsKey("position")) {
+                    extra.put("position", keycloakUserInfo.get("position"));
+                }
+                if (keycloakUserInfo.containsKey("email")) {
+                    extra.put("email", keycloakUserInfo.get("email"));
+                }
+            }
 
             return new ResolveResponse(
                 "Q1", periodStart, periodEnd, updatedAt,
@@ -215,10 +236,12 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q2", periodStart, periodEnd, updatedAt,
@@ -272,10 +295,12 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q3", periodStart, periodEnd, updatedAt,
@@ -330,10 +355,12 @@ public class PersonalizationService {
             int progressPercent = lastProgress.getProgress_percent() != null ? lastProgress.getProgress_percent() : 0;
             int resumeSeconds = lastProgress.getResume_position_seconds() != null ? lastProgress.getResume_position_seconds() : 0;
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q4", periodStart, periodEnd, updatedAt,
@@ -543,10 +570,12 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q7", periodStart, periodEnd, updatedAt,
@@ -605,10 +634,12 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q8", periodStart, periodEnd, updatedAt,
@@ -661,10 +692,12 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q9", periodStart, periodEnd, updatedAt,
@@ -733,10 +766,12 @@ public class PersonalizationService {
                 ));
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q10", periodStart, periodEnd, updatedAt,
@@ -776,16 +811,26 @@ public class PersonalizationService {
             Double usedDays = leaveHistoryRepository.sumDaysByUserUuidAndYear(userUuid, currentYear);
             if (usedDays == null) usedDays = 0.0;
 
-            // 총 연차는 15일로 가정 (실제로는 infra.user 테이블에서 조회해야 함)
-            int totalDays = 15;
-            double remainingDays = totalDays - usedDays;
+            // Keycloak에서 남은 연차 조회
+            int remainingDays = 15; // 기본값
+            Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+            if (keycloakUserInfo != null && keycloakUserInfo.containsKey("unusedVacationDays")) {
+                String unusedVacationDaysStr = (String) keycloakUserInfo.get("unusedVacationDays");
+                if (unusedVacationDaysStr != null && !unusedVacationDaysStr.isBlank()) {
+                    try {
+                        remainingDays = Integer.parseInt(unusedVacationDaysStr);
+                    } catch (NumberFormatException e) {
+                        log.warn("Invalid unusedVacationDays format: {}", unusedVacationDaysStr);
+                    }
+                }
+            }
+            
+            // 총 연차 = 남은 연차 + 사용한 연차
+            int totalDays = remainingDays + usedDays.intValue();
 
-            // 사용자 이름 조회
-            String employeeName = employeeRepository.findByUserUuid(userUuid)
-                .map(Employee::getName)
-                .orElse(null);
-
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
+            String employeeName = getEmployeeName(userUuid, userId);
             if (employeeName != null) {
                 extra.put("employee_name", employeeName);
             }
@@ -802,13 +847,13 @@ public class PersonalizationService {
                 null
             );
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid userId format: {}", userId);
+            log.warn("Invalid userId format: {}", userId, e);
             return createErrorResponse("Q11", periodStart, periodEnd, updatedAt,
                 "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
         } catch (Exception e) {
-            log.error("Error in Q11 handler: userId={}", userId, e);
+            log.error("Error in Q11 handler: userId={}, error={}", userId, e.getMessage(), e);
             return createErrorResponse("Q11", periodStart, periodEnd, updatedAt,
-                "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
+                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
         }
     }
 
@@ -831,9 +876,22 @@ public class PersonalizationService {
             Long usageCount = leaveHistoryRepository.countByUserUuidAndYear(userUuid, currentYear);
             if (usageCount == null) usageCount = 0L;
 
-            // 총 연차는 15일로 가정
-            int totalDays = 15;
-            double remainingDays = totalDays - usedDays;
+            // Keycloak에서 남은 연차 조회
+            int remainingDays = 15; // 기본값
+            Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+            if (keycloakUserInfo != null && keycloakUserInfo.containsKey("unusedVacationDays")) {
+                String unusedVacationDaysStr = (String) keycloakUserInfo.get("unusedVacationDays");
+                if (unusedVacationDaysStr != null && !unusedVacationDaysStr.isBlank()) {
+                    try {
+                        remainingDays = Integer.parseInt(unusedVacationDaysStr);
+                    } catch (NumberFormatException e) {
+                        log.warn("Invalid unusedVacationDays format: {}", unusedVacationDaysStr);
+                    }
+                }
+            }
+            
+            // 총 연차 = 남은 연차 + 사용한 연차
+            int totalDays = remainingDays + usedDays.intValue();
 
             // items 생성
             List<Object> items = new ArrayList<>();
@@ -850,10 +908,12 @@ public class PersonalizationService {
                 ));
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q12", periodStart, periodEnd, updatedAt,
@@ -897,10 +957,12 @@ public class PersonalizationService {
                 welfarePoints = welfarePoint.getRemaining() != null ? welfarePoint.getRemaining() : 0;
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q14", periodStart, periodEnd, updatedAt,
@@ -963,10 +1025,12 @@ public class PersonalizationService {
                 ));
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q15", periodStart, periodEnd, updatedAt,
@@ -1049,10 +1113,12 @@ public class PersonalizationService {
             metrics.put("total_deductions", salary.getTotalDeductions() != null ? salary.getTotalDeductions() : 0);
             metrics.put("net_pay", salary.getNetPay() != null ? salary.getNetPay() : 0);
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q13", periodStart, periodEnd, updatedAt,
@@ -1082,13 +1148,90 @@ public class PersonalizationService {
             // DB에서 직원 정보 조회
             Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
 
+            // Employee가 없으면 Keycloak에서 정보 조회
             if (employee == null) {
+                log.info("Employee not found in DB, trying Keycloak: userId={}", userId);
+                Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+                
+                if (keycloakUserInfo == null) {
+                    log.warn("Keycloak에서도 사용자 정보를 찾을 수 없음: userId={}", userId);
+                    return new ResolveResponse(
+                        "Q16", periodStart, periodEnd, updatedAt,
+                        Map.of(),
+                        List.of(),
+                        Map.of(),
+                        new ErrorInfo("NOT_FOUND", "인사 정보를 찾을 수 없어요.")
+                    );
+                }
+                
+                // Keycloak 정보로 응답 생성
+                List<Object> items = new ArrayList<>();
+                Map<String, Object> metrics = new HashMap<>();
+                Map<String, Object> extra = new HashMap<>();
+                
+                // 기본 정보
+                String fullName = (String) keycloakUserInfo.getOrDefault("fullName", "");
+                String employeeNo = (String) keycloakUserInfo.getOrDefault("employeeNo", "");
+                String department = (String) keycloakUserInfo.getOrDefault("department", "");
+                String position = (String) keycloakUserInfo.getOrDefault("position", "");
+                String email = (String) keycloakUserInfo.getOrDefault("email", "");
+                String companyEmail = (String) keycloakUserInfo.getOrDefault("companyEmail", "");
+                String phoneNumber = (String) keycloakUserInfo.getOrDefault("phoneNumber", "");
+                String gender = (String) keycloakUserInfo.getOrDefault("gender", "");
+                String age = (String) keycloakUserInfo.getOrDefault("age", "");
+                String tenureYears = (String) keycloakUserInfo.getOrDefault("tenureYears", "");
+                String hireYear = (String) keycloakUserInfo.getOrDefault("hireYear", "");
+                String unusedVacationDays = (String) keycloakUserInfo.getOrDefault("unusedVacationDays", "");
+                String overtimeHours = (String) keycloakUserInfo.getOrDefault("overtimeHours", "");
+                String performanceScore = (String) keycloakUserInfo.getOrDefault("performanceScore", "");
+                String salary = (String) keycloakUserInfo.getOrDefault("salary", "");
+                
+                // items 생성
+                if (!employeeNo.isBlank()) items.add(new Q16EmployeeItem("사원번호", employeeNo));
+                if (!fullName.isBlank()) items.add(new Q16EmployeeItem("이름", fullName));
+                if (!department.isBlank()) items.add(new Q16EmployeeItem("부서", department));
+                if (!position.isBlank()) items.add(new Q16EmployeeItem("직급", position));
+                if (!tenureYears.isBlank()) items.add(new Q16EmployeeItem("근속연수", tenureYears + "년"));
+                if (!hireYear.isBlank()) items.add(new Q16EmployeeItem("입사년도", hireYear));
+                if (!email.isBlank()) items.add(new Q16EmployeeItem("이메일", email));
+                if (!companyEmail.isBlank()) items.add(new Q16EmployeeItem("회사이메일", companyEmail));
+                if (!phoneNumber.isBlank()) items.add(new Q16EmployeeItem("휴대폰", phoneNumber));
+                if (!gender.isBlank()) items.add(new Q16EmployeeItem("성별", gender));
+                if (!age.isBlank()) items.add(new Q16EmployeeItem("나이", age));
+                if (!unusedVacationDays.isBlank()) items.add(new Q16EmployeeItem("남은 연차", unusedVacationDays + "일"));
+                if (!overtimeHours.isBlank()) items.add(new Q16EmployeeItem("초과근무시간", overtimeHours + "시간"));
+                if (!performanceScore.isBlank()) items.add(new Q16EmployeeItem("성과점수", performanceScore));
+                if (!salary.isBlank()) items.add(new Q16EmployeeItem("급여", salary));
+                
+                // metrics 생성
+                metrics.put("employee_id", employeeNo);
+                metrics.put("name", fullName);
+                metrics.put("department", department);
+                metrics.put("position", position);
+                metrics.put("email", email);
+                metrics.put("company_email", companyEmail);
+                metrics.put("phone", phoneNumber); // 원본 전화번호 (AI Gateway에서 마스킹)
+                metrics.put("gender", gender);
+                metrics.put("age", age);
+                metrics.put("tenure_years", tenureYears);
+                metrics.put("hire_year", hireYear);
+                metrics.put("unused_vacation_days", unusedVacationDays);
+                metrics.put("overtime_hours", overtimeHours);
+                metrics.put("performance_score", performanceScore);
+                metrics.put("salary", salary);
+                
+                // extra 생성
+                extra.put("department", department);
+                extra.put("position", position);
+                extra.put("email", email);
+                extra.put("employee_name", fullName);
+                
                 return new ResolveResponse(
                     "Q16", periodStart, periodEnd, updatedAt,
-                    Map.of(),
-                    List.of(),
-                    Map.of(),
-                    new ErrorInfo("NOT_FOUND", "인사 정보를 찾을 수 없어요.")
+                    metrics,
+                    items,
+                    extra,
+                    null
                 );
             }
 
@@ -1113,8 +1256,12 @@ public class PersonalizationService {
             items.add(new Q16EmployeeItem("입사일", employee.getHireDate() != null ? employee.getHireDate().toString() : ""));
             items.add(new Q16EmployeeItem("근속연수", yearsOfService + "년 " + monthsOfService + "개월"));
             items.add(new Q16EmployeeItem("이메일", employee.getEmail() != null ? employee.getEmail() : ""));
-            items.add(new Q16EmployeeItem("휴대폰", employee.getPhone() != null ? employee.getPhone() : ""));
-            items.add(new Q16EmployeeItem("사내전화", employee.getOfficePhone() != null ? employee.getOfficePhone() : ""));
+            if (employee.getPhone() != null && !employee.getPhone().isBlank()) {
+                items.add(new Q16EmployeeItem("휴대폰", employee.getPhone()));
+            }
+            if (employee.getOfficePhone() != null && !employee.getOfficePhone().isBlank()) {
+                items.add(new Q16EmployeeItem("사내전화", employee.getOfficePhone()));
+            }
 
             Map<String, Object> metrics = new HashMap<>();
             metrics.put("employee_id", employee.getEmployeeId() != null ? employee.getEmployeeId() : "");
@@ -1126,13 +1273,14 @@ public class PersonalizationService {
             metrics.put("years_of_service", yearsOfService);
             metrics.put("months_of_service", monthsOfService);
             metrics.put("email", employee.getEmail() != null ? employee.getEmail() : "");
-            metrics.put("phone", employee.getPhone() != null ? employee.getPhone() : "");
-            metrics.put("office_phone", employee.getOfficePhone() != null ? employee.getOfficePhone() : "");
+            metrics.put("phone", employee.getPhone() != null ? employee.getPhone() : ""); // 원본 전화번호 (AI Gateway에서 마스킹)
+            metrics.put("office_phone", employee.getOfficePhone() != null ? employee.getOfficePhone() : ""); // 원본 사내전화 (AI Gateway에서 마스킹)
 
-            // extra에 employee_name 추가
+            // extra에 employee_name 추가 (Keycloak에서도 조회)
             Map<String, Object> extra = new HashMap<>();
-            if (employee.getName() != null) {
-                extra.put("employee_name", employee.getName());
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
             }
 
             return new ResolveResponse(
@@ -1143,13 +1291,13 @@ public class PersonalizationService {
                 null
             );
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid userId format: {}", userId);
+            log.warn("Invalid userId format: {}", userId, e);
             return createErrorResponse("Q16", periodStart, periodEnd, updatedAt,
                 "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
         } catch (Exception e) {
-            log.error("Error in Q16 handler: userId={}", userId, e);
+            log.error("Error in Q16 handler: userId={}, error={}", userId, e.getMessage(), e);
             return createErrorResponse("Q16", periodStart, periodEnd, updatedAt,
-                "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
+                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
         }
     }
 
@@ -1286,10 +1434,12 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q18", periodStart, periodEnd, updatedAt,
@@ -1361,10 +1511,12 @@ public class PersonalizationService {
                 }
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q19", periodStart, periodEnd, updatedAt,
@@ -1433,10 +1585,12 @@ public class PersonalizationService {
                 items.add(new Q20TodoItem("deadline", "이번 주 마감 교육/퀴즈 " + todoResponse.getTodoCount() + "건", null, null));
             }
 
-            // 사용자 이름 조회
+            // 사용자 이름 조회 (DB 먼저, 없으면 Keycloak)
             Map<String, Object> extra = new HashMap<>();
-            employeeRepository.findByUserUuid(userUuid)
-                .ifPresent(emp -> extra.put("employee_name", emp.getName()));
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
 
             return new ResolveResponse(
                 "Q20", periodStart, periodEnd, updatedAt,
@@ -1454,6 +1608,203 @@ public class PersonalizationService {
             return createErrorResponse("Q20", periodStart, periodEnd, updatedAt,
                 "SERVICE_ERROR", "데이터를 조회하는 중 오류가 발생했어요.");
         }
+    }
+
+    // ---------- Q21: 내 부서만 조회 ----------
+    private ResolveResponse handleQ21(String userId, String periodStart, String periodEnd, String updatedAt) {
+        log.info("Q21 handler (부서만): userId={}", userId);
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            
+            // DB에서 직원 정보 조회
+            Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
+            String department = null;
+            
+            if (employee != null && employee.getDepartmentName() != null) {
+                department = employee.getDepartmentName();
+            } else {
+                // Keycloak에서 부서 정보 조회
+                Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+                if (keycloakUserInfo != null) {
+                    department = (String) keycloakUserInfo.getOrDefault("department", "");
+                }
+            }
+            
+            if (department == null || department.isBlank()) {
+                return createErrorResponse("Q21", periodStart, periodEnd, updatedAt,
+                    "NOT_FOUND", "부서 정보를 찾을 수 없어요.");
+            }
+            
+            Map<String, Object> extra = new HashMap<>();
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
+            
+            return new ResolveResponse(
+                "Q21", periodStart, periodEnd, updatedAt,
+                Map.of("department", department),
+                List.of(),
+                extra,
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q21", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q21 handler: userId={}", userId, e);
+            return createErrorResponse("Q21", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+    }
+
+    // ---------- Q22: 내 직급만 조회 ----------
+    private ResolveResponse handleQ22(String userId, String periodStart, String periodEnd, String updatedAt) {
+        log.info("Q22 handler (직급만): userId={}", userId);
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            
+            // DB에서 직원 정보 조회
+            Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
+            String position = null;
+            
+            if (employee != null && employee.getPosition() != null) {
+                position = employee.getPosition();
+            } else {
+                // Keycloak에서 직급 정보 조회
+                Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+                if (keycloakUserInfo != null) {
+                    position = (String) keycloakUserInfo.getOrDefault("position", "");
+                }
+            }
+            
+            if (position == null || position.isBlank()) {
+                return createErrorResponse("Q22", periodStart, periodEnd, updatedAt,
+                    "NOT_FOUND", "직급 정보를 찾을 수 없어요.");
+            }
+            
+            Map<String, Object> extra = new HashMap<>();
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
+            
+            return new ResolveResponse(
+                "Q22", periodStart, periodEnd, updatedAt,
+                Map.of("position", position),
+                List.of(),
+                extra,
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q22", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q22 handler: userId={}", userId, e);
+            return createErrorResponse("Q22", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+    }
+
+    // ---------- Q23: 내 이메일만 조회 ----------
+    private ResolveResponse handleQ23(String userId, String periodStart, String periodEnd, String updatedAt) {
+        log.info("Q23 handler (이메일만): userId={}", userId);
+
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            
+            // DB에서 직원 정보 조회
+            Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
+            String email = null;
+            
+            if (employee != null && employee.getEmail() != null) {
+                email = employee.getEmail();
+            } else {
+                // Keycloak에서 이메일 정보 조회
+                Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+                if (keycloakUserInfo != null) {
+                    email = (String) keycloakUserInfo.getOrDefault("email", "");
+                    if (email.isBlank()) {
+                        email = (String) keycloakUserInfo.getOrDefault("companyEmail", "");
+                    }
+                }
+            }
+            
+            if (email == null || email.isBlank()) {
+                return createErrorResponse("Q23", periodStart, periodEnd, updatedAt,
+                    "NOT_FOUND", "이메일 정보를 찾을 수 없어요.");
+            }
+            
+            Map<String, Object> extra = new HashMap<>();
+            String employeeName = getEmployeeName(userUuid, userId);
+            if (employeeName != null) {
+                extra.put("employee_name", employeeName);
+            }
+            
+            return new ResolveResponse(
+                "Q23", periodStart, periodEnd, updatedAt,
+                Map.of("email", email),
+                List.of(),
+                extra,
+                null
+            );
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid userId format: {}", userId);
+            return createErrorResponse("Q23", periodStart, periodEnd, updatedAt,
+                "INVALID_USER", "사용자 정보를 확인할 수 없어요.");
+        } catch (Exception e) {
+            log.error("Error in Q23 handler: userId={}", userId, e);
+            return createErrorResponse("Q23", periodStart, periodEnd, updatedAt,
+                "SERVICE_ERROR", "개인화 정보를 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+    }
+
+    // ---------- Keycloak 유저 정보 조회 ----------
+    
+    /**
+     * Keycloak에서 개인화를 위한 사용자 정보를 조회합니다.
+     * 직급, 부서, 이메일 정보를 반환합니다.
+     * 
+     * @param userId Keycloak 사용자 ID
+     * @return 사용자 정보 Map (department, position, email 포함), 조회 실패 시 null
+     */
+    private Map<String, Object> getUserInfoFromKeycloak(String userId) {
+        try {
+            return keycloakAdminService.getUserInfoForPersonalization(userId);
+        } catch (Exception e) {
+            log.error("Keycloak에서 사용자 정보 조회 실패: userId={}, error={}", userId, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 사용자 이름을 조회합니다 (DB 먼저, 없으면 Keycloak).
+     * 
+     * @param userUuid 사용자 UUID
+     * @param userId Keycloak 사용자 ID
+     * @return 사용자 이름, 없으면 null
+     */
+    private String getEmployeeName(UUID userUuid, String userId) {
+        // DB에서 먼저 조회
+        Employee employee = employeeRepository.findByUserUuid(userUuid).orElse(null);
+        if (employee != null && employee.getName() != null) {
+            return employee.getName();
+        }
+        
+        // Keycloak에서 이름 조회
+        Map<String, Object> keycloakUserInfo = getUserInfoFromKeycloak(userId);
+        if (keycloakUserInfo != null) {
+            String fullName = (String) keycloakUserInfo.getOrDefault("fullName", "");
+            if (!fullName.isBlank()) {
+                return fullName;
+            }
+        }
+        
+        return null;
     }
 
     // ---------- 에러 응답 생성 ----------

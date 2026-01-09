@@ -25,6 +25,8 @@ public class SecurityConfig {
                 .pathMatchers("/internal/**").permitAll()
                 // 토큰 발급 엔드포인트는 인증 우회
                 .pathMatchers("/admin/users/token/**").permitAll()
+                // 개인화 API는 인증 우회 (AI Gateway에서 X-User-Id 헤더로 사용자 식별)
+                .pathMatchers("/api/personalization/**").permitAll()
                 // 나머지는 JWT 인증 필요
                 .anyExchange().authenticated()
             )

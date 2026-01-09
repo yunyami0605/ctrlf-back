@@ -40,7 +40,7 @@ public class RagAiClient {
      */
     public RagAiClient(
         @Value("${app.rag.ai.base-url:http://localhost:8000}") String baseUrl,
-        @Value("${app.rag.ai.token:}") String internalToken,
+        @Value("${AI_INTERNAL_TOKEN:${app.ai.token:${app.internal.token:}}}") String internalToken,
         @Value("${app.rag.ai.timeout-seconds:10}") long timeoutSeconds
     ) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
