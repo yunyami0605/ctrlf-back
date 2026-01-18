@@ -16,6 +16,7 @@ import com.ctrlf.education.script.entity.EducationScriptScene;
 import com.ctrlf.education.script.repository.EducationScriptChapterRepository;
 import com.ctrlf.education.script.repository.EducationScriptRepository;
 import com.ctrlf.education.script.repository.EducationScriptSceneRepository;
+import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.entity.EducationVideo;
 import com.ctrlf.education.video.entity.SourceSet;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
@@ -386,7 +387,7 @@ public class ScriptService {
 
     // EducationVideo에 scriptId 연결 및 상태 업데이트
     video.setScriptId(script.getId());
-    video.setStatus("SCRIPT_READY"); // 스크립트 생성 완료 → 영상 생성 대기
+    video.setStatus(VideoStatus.SCRIPT_READY); // 스크립트 생성 완료 → 영상 생성 대기
     videoRepository.save(video);
 
     log.info(

@@ -17,6 +17,7 @@ import com.ctrlf.education.video.repository.EducationVideoReviewRepository;
 import com.ctrlf.education.video.repository.SourceSetDocumentRepository;
 import com.ctrlf.education.video.repository.SourceSetRepository;
 import com.ctrlf.education.video.repository.VideoGenerationJobRepository;
+import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.entity.SourceSet;
 import com.ctrlf.education.video.entity.SourceSetDocument;
 import org.springframework.beans.factory.annotation.Value;
@@ -324,7 +325,7 @@ public class SeedDataRunner implements CommandLineRunner {
                 seed.fileUrl,
                 seed.duration,
                 1,      // version
-                "PUBLISHED" // status - 바로 재생 가능
+                VideoStatus.PUBLISHED // status - 바로 재생 가능
             );
             
             // 같은 교육 내 기존 비디오 수 계산하여 orderIndex 설정

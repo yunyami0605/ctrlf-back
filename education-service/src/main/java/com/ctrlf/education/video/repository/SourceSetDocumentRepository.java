@@ -4,11 +4,9 @@ import com.ctrlf.education.video.entity.SourceSetDocument;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface SourceSetDocumentRepository extends JpaRepository<SourceSetDocument, UUID> {
@@ -27,4 +25,10 @@ public interface SourceSetDocumentRepository extends JpaRepository<SourceSetDocu
         @Param("sourceSetId") UUID sourceSetId,
         @Param("documentId") UUID documentId
     );
+
+    /**
+     * 여러 소스셋 ID에 해당하는 문서 목록 한 번에 조회 (N+1 해결용).
+     */
+    @Query("SELECT ssd FROM SourceSetDocument ssd JOIN FETCH ssd.sourceSet WHERE ssd.sourceSet.id IN :sourceSetIds")
+    List<SourceSetDocument> findBySourceSetIdIn(@Param("sourceSetIds") java.util.Collection<UUID> sourceSetIds);
 }

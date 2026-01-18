@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 퀴즈 내부 API 컨트롤러 (infra-service ↔ education-service).
- * 개인화 서비스(Q7, Q18)를 위한 내부 API를 제공합니다.
  */
 @Tag(name = "Internal - Quiz", description = "퀴즈 내부 API (Personalization용)")
 @RestController

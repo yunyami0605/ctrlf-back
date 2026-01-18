@@ -1,7 +1,10 @@
 package com.ctrlf.education.video.entity;
 
+import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -66,9 +69,10 @@ public class EducationVideo {
     @Column(name = "duration")
     private Integer duration;
 
-    /** 상태(예: READY/PROCESSING/FAILED/ACTIVE 등) */
+    /** 영상 상태 */
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private String status;
+    private VideoStatus status;
 
     /** 생성 시각 */
     @CreationTimestamp
@@ -101,7 +105,7 @@ public class EducationVideo {
         String fileUrl,
         Integer duration,
         Integer version,
-        String status
+        VideoStatus status
     ) {
         EducationVideo v = new EducationVideo();
         v.setEducationId(educationId);
@@ -122,7 +126,7 @@ public class EducationVideo {
         EducationVideo v = new EducationVideo();
         v.setEducationId(educationId);
         v.setTitle(title);
-        v.setStatus("DRAFT");
+        v.setStatus(VideoStatus.DRAFT);
         v.setVersion(1);
         v.setOrderIndex(0);
         v.setCreatorUuid(creatorUuid);

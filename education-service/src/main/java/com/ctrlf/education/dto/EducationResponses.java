@@ -18,13 +18,11 @@ public final class EducationResponses {
 
     /**
      * 교육 생성 응답 DTO.
-     * 생성된 교육 식별자를 반환합니다.
      */
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CreateEducationResponse {
-        /** 생성된 교육 ID */
         private UUID eduId;
     }
 
@@ -37,7 +35,6 @@ public final class EducationResponses {
 
     /**
      * 교육 상세 응답 DTO.
-     * 기본 정보와 섹션(차시) 목록을 포함합니다.
      */
     @Getter
     @Builder
@@ -70,7 +67,6 @@ public final class EducationResponses {
 
     /**
      * 교육 영상 목록 응답 DTO.
-     * 영상별 재생 URL과 사용자 진행 정보(옵션)를 포함합니다.
      */
     @Getter
     @Builder
@@ -119,7 +115,6 @@ public final class EducationResponses {
 
     /**
      * 교육 목록 조회 응답(확장).
-     * 카테고리/필수 여부/이수 상태/제목/설명을 제공합니다.
      */
     @Getter
     @AllArgsConstructor

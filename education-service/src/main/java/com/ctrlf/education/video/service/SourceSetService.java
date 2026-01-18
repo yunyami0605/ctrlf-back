@@ -11,6 +11,7 @@ import com.ctrlf.education.video.dto.VideoDtos.SourceSetCompleteResponse;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetCreateRequest;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetCreateResponse;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetUpdateRequest;
+import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.entity.SourceSet;
 import com.ctrlf.education.video.entity.SourceSetDocument;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
@@ -96,7 +97,7 @@ public class SourceSetService {
         // EducationVideo에 sourceSetId 연결 및 status를 DRAFT로 초기화
         videoRepository.findById(req.videoId()).ifPresent(video -> {
             video.setSourceSetId(savedSourceSet.getId());
-            video.setStatus("DRAFT");
+            video.setStatus(VideoStatus.DRAFT);
             videoRepository.save(video);
             log.info("EducationVideo에 sourceSetId 연결 및 status를 DRAFT로 초기화: videoId={}, sourceSetId={}", 
                 req.videoId(), savedSourceSet.getId());
@@ -523,11 +524,11 @@ public class SourceSetService {
                         
                         // 모든 씬이 완료되었는지 확인하여 상태 설정
                         if (isComplete) {
-                            video.setStatus("SCRIPT_READY");
+                            video.setStatus(VideoStatus.SCRIPT_READY);
                             log.info("스크립트 생성 완료 (패치 모드): videoId={}, progress={}/{}",
                                 video.getId(), currentScene, totalScenes);
                         } else {
-                            video.setStatus("SCRIPT_GENERATING");
+                            video.setStatus(VideoStatus.SCRIPT_GENERATING);
                             log.debug("스크립트 생성 중 (패치 모드): videoId={}, progress={}/{}",
                                 video.getId(), currentScene, totalScenes);
                         }
@@ -622,7 +623,7 @@ public class SourceSetService {
         if (sourceSet.getVideoId() != null) {
             videoRepository.findById(sourceSet.getVideoId()).ifPresent(video -> {
                 video.setScriptId(scriptId);
-                video.setStatus("SCRIPT_READY"); // 스크립트 생성 완료 → 영상 생성 대기
+                video.setStatus(VideoStatus.SCRIPT_READY); // 스크립트 생성 완료 → 영상 생성 대기
                 videoRepository.save(video);
                 log.info("영상에 스크립트 연결 완료: videoId={}, scriptId={}", video.getId(), scriptId);
             });

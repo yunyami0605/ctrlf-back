@@ -15,7 +15,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 /**
  * 교육 진행 현황 엔티티.
- * 사용자별 교육의 진행률/이수 여부 및 시청 정보(마지막 위치, 누적 시청 시간)를 보관합니다.
  */
 @Entity
 @Table(name = "education_progress", schema = "education")

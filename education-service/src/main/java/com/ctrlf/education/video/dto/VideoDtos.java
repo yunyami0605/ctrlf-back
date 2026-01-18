@@ -302,7 +302,7 @@ public final class VideoDtos {
     ) {}
 
     // ========================
-    // 영상 상태 Enum (어드민 테스트용)
+    // 영상 상태 Enum
     // ========================
 
     @Schema(description = "영상 상태")

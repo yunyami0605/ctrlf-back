@@ -17,8 +17,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 /**
- * 교육 메타 정보 엔티티.
- * 카테고리/필수 여부/통과 기준 등 기본 속성을 보관합니다.
+ * 교육 엔티티.
  */
 @Entity
 @Table(name = "education", schema = "education")

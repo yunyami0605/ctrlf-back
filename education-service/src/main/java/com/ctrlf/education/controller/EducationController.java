@@ -36,13 +36,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 /**
- * 교육 도메인 REST 컨트롤러.
- * <p>
- * - 목록/상세/수정/삭제 등 교육 리소스 CRUD와
- * <p>
- * - 영상 목록 및 진행률(수강) 업데이트, 교육 이수 처리 API를 제공합니다.
- * <p>
- * JWT 값을 사용자 UUID로 해석하여 사용자별 진행 정보를 처리합니다.
+ * 교육 도메인 컨트롤러.
  */
 @Slf4j
 @RestController

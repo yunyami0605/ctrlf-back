@@ -19,8 +19,10 @@ import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Getter;
@@ -83,10 +85,7 @@ public class InternalEducationController {
         log.info("getProgressByTopic: userUuid={}, topic={}", userUuid, educationTopic);
 
         // 해당 토픽의 교육 목록 조회
-        List<Education> topicEducations = educationRepository.findAll().stream()
-            .filter(e -> e.getDeletedAt() == null)
-            .filter(e -> e.getCategory() == educationTopic)
-            .collect(Collectors.toList());
+        List<Education> topicEducations = educationRepository.findByTopic(educationTopic);
 
         if (topicEducations.isEmpty()) {
             return ResponseEntity.ok(TopicProgressResponse.builder()
@@ -97,35 +96,37 @@ public class InternalEducationController {
                 .build());
         }
 
-        // 사용자의 완료된 교육 조회
-        List<EducationProgress> completedProgresses = educationProgressRepository
-            .findByUserUuidAndIsCompletedTrue(userUuid);
+        // 교육 ID 목록 추출
+        Set<UUID> educationIds = topicEducations.stream()
+            .map(Education::getId)
+            .collect(Collectors.toSet());
 
-        List<UUID> completedEducationIds = completedProgresses.stream()
-            .map(EducationProgress::getEducationId)
-            .collect(Collectors.toList());
+        // 사용자의 해당 교육들에 대한 진행 정보를 한 번에 조회
+        List<EducationProgress> progresses = educationProgressRepository
+            .findByUserUuidAndEducationIdIn(userUuid, educationIds);
+        Map<UUID, EducationProgress> progressMap = progresses.stream()
+            .collect(Collectors.toMap(EducationProgress::getEducationId, Function.identity()));
 
         // 해당 토픽에서 완료한 교육 수
-        long completedCount = topicEducations.stream()
-            .filter(e -> completedEducationIds.contains(e.getId()))
+        long completedCount = progresses.stream()
+            .filter(p -> Boolean.TRUE.equals(p.getIsCompleted()))
             .count();
 
-        // 교육별 상세 정보
+        // 교육별 상세 정보 (캐시된 데이터 사용)
         List<TopicEducationItem> items = topicEducations.stream()
             .map(edu -> {
-                Optional<EducationProgress> progress = educationProgressRepository
-                    .findByUserUuidAndEducationId(userUuid, edu.getId());
+                EducationProgress progress = progressMap.get(edu.getId());
 
-                boolean completed = progress.map(p -> Boolean.TRUE.equals(p.getIsCompleted())).orElse(false);
-                Instant completedAt = progress.map(EducationProgress::getCompletedAt).orElse(null);
-                Integer progressPercent = progress.map(EducationProgress::getProgress).orElse(0);
+                boolean completed = progress != null && Boolean.TRUE.equals(progress.getIsCompleted());
+                Instant completedAt = progress != null ? progress.getCompletedAt() : null;
+                Integer progressPercent = progress != null ? progress.getProgress() : 0;
 
                 return TopicEducationItem.builder()
                     .educationId(edu.getId().toString())
                     .title(edu.getTitle())
                     .isCompleted(completed)
                     .completedAt(completedAt != null ? completedAt.toString() : null)
-                    .progressPercent(progressPercent)
+                    .progressPercent(progressPercent != null ? progressPercent : 0)
                     .deadline(edu.getEndAt() != null ? edu.getEndAt().toString() : null)
                     .build();
             })
@@ -175,12 +176,8 @@ public class InternalEducationController {
 
         log.info("getDeadlineByTopic: userUuid={}, topic={}", userUuid, educationTopic);
 
-        // 해당 토픽의 교육 목록 조회 (마감일이 있는 것만)
-        List<Education> topicEducations = educationRepository.findAll().stream()
-            .filter(e -> e.getDeletedAt() == null)
-            .filter(e -> e.getCategory() == educationTopic)
-            .filter(e -> e.getEndAt() != null)
-            .collect(Collectors.toList());
+        // 해당 토픽의 마감일 있는 교육 목록 조회
+        List<Education> topicEducations = educationRepository.findByTopicWithDeadline(educationTopic);
 
         if (topicEducations.isEmpty()) {
             return ResponseEntity.ok(TopicDeadlineResponse.builder()
@@ -190,12 +187,18 @@ public class InternalEducationController {
                 .build());
         }
 
-        // 사용자의 완료된 교육 조회
-        List<EducationProgress> completedProgresses = educationProgressRepository
-            .findByUserUuidAndIsCompletedTrue(userUuid);
-        List<UUID> completedEducationIds = completedProgresses.stream()
+        // 교육 ID 목록 추출
+        Set<UUID> educationIds = topicEducations.stream()
+            .map(Education::getId)
+            .collect(Collectors.toSet());
+
+        // 사용자의 해당 교육들에 대한 완료 정보를 한 번에 조회
+        List<EducationProgress> progresses = educationProgressRepository
+            .findByUserUuidAndEducationIdIn(userUuid, educationIds);
+        Set<UUID> completedEducationIds = progresses.stream()
+            .filter(p -> Boolean.TRUE.equals(p.getIsCompleted()))
             .map(EducationProgress::getEducationId)
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
 
         // 미완료 교육 중 가장 가까운 마감일 찾기
         List<TopicDeadlineItem> items = topicEducations.stream()
@@ -250,12 +253,8 @@ public class InternalEducationController {
 
         Instant now = Instant.now();
 
-        // 필수 교육 목록 조회 (삭제되지 않고, 현재 활성 상태인 것)
-        List<Education> mandatoryEducations = educationRepository.findAll().stream()
-            .filter(e -> e.getDeletedAt() == null)
-            .filter(e -> Boolean.TRUE.equals(e.getRequire()))
-            .filter(e -> e.getStartAt() == null || !e.getStartAt().isAfter(now))
-            .collect(Collectors.toList());
+        // 필수 활성 교육 목록 조회
+        List<Education> mandatoryEducations = educationRepository.findActiveMandatory(now);
 
         if (mandatoryEducations.isEmpty()) {
             return ResponseEntity.ok(IncompleteMandatoryResponse.builder()
@@ -266,12 +265,18 @@ public class InternalEducationController {
                 .build());
         }
 
-        // 사용자의 완료된 교육 조회
-        List<EducationProgress> completedProgresses = educationProgressRepository
-            .findByUserUuidAndIsCompletedTrue(userUuid);
-        List<UUID> completedEducationIds = completedProgresses.stream()
+        // 교육 ID 목록 추출
+        Set<UUID> educationIds = mandatoryEducations.stream()
+            .map(Education::getId)
+            .collect(Collectors.toSet());
+
+        // 사용자의 해당 교육들에 대한 완료 정보를 한 번에 조회
+        List<EducationProgress> progresses = educationProgressRepository
+            .findByUserUuidAndEducationIdIn(userUuid, educationIds);
+        Set<UUID> completedEducationIds = progresses.stream()
+            .filter(p -> Boolean.TRUE.equals(p.getIsCompleted()))
             .map(EducationProgress::getEducationId)
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
 
         // 미이수 필수 교육 필터링
         List<IncompleteMandatoryItem> items = mandatoryEducations.stream()
@@ -324,12 +329,7 @@ public class InternalEducationController {
         Instant monthEnd = lastDayOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
 
         // 이번 달 마감인 필수 교육 목록 조회
-        List<Education> deadlineEducations = educationRepository.findAll().stream()
-            .filter(e -> e.getDeletedAt() == null)
-            .filter(e -> Boolean.TRUE.equals(e.getRequire()))
-            .filter(e -> e.getEndAt() != null)
-            .filter(e -> !e.getEndAt().isBefore(monthStart) && e.getEndAt().isBefore(monthEnd))
-            .collect(Collectors.toList());
+        List<Education> deadlineEducations = educationRepository.findMandatoryWithDeadlineBetween(monthStart, monthEnd);
 
         if (deadlineEducations.isEmpty()) {
             return ResponseEntity.ok(DeadlinesThisMonthResponse.builder()
@@ -338,12 +338,18 @@ public class InternalEducationController {
                 .build());
         }
 
-        // 사용자의 완료된 교육 조회
-        List<EducationProgress> completedProgresses = educationProgressRepository
-            .findByUserUuidAndIsCompletedTrue(userUuid);
-        List<UUID> completedEducationIds = completedProgresses.stream()
+        // 교육 ID 목록 추출
+        Set<UUID> educationIds = deadlineEducations.stream()
+            .map(Education::getId)
+            .collect(Collectors.toSet());
+
+        // 사용자의 해당 교육들에 대한 완료 정보를 한 번에 조회
+        List<EducationProgress> progresses = educationProgressRepository
+            .findByUserUuidAndEducationIdIn(userUuid, educationIds);
+        Set<UUID> completedEducationIds = progresses.stream()
+            .filter(p -> Boolean.TRUE.equals(p.getIsCompleted()))
             .map(EducationProgress::getEducationId)
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
 
         // 미완료 교육만 필터링하고 마감일 기준 정렬
         List<DeadlineEducationItem> items = deadlineEducations.stream()
@@ -395,18 +401,27 @@ public class InternalEducationController {
         Instant weekEndInstant = weekEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
 
         // 이번 주 마감인 교육 목록 조회
-        List<Education> weekEducations = educationRepository.findAll().stream()
-            .filter(e -> e.getDeletedAt() == null)
-            .filter(e -> e.getEndAt() != null)
-            .filter(e -> !e.getEndAt().isBefore(now) && e.getEndAt().isBefore(weekEndInstant))
-            .collect(Collectors.toList());
+        List<Education> weekEducations = educationRepository.findWithDeadlineBetween(now, weekEndInstant);
 
-        // 사용자의 완료된 교육 조회
-        List<EducationProgress> completedProgresses = educationProgressRepository
-            .findByUserUuidAndIsCompletedTrue(userUuid);
-        List<UUID> completedEducationIds = completedProgresses.stream()
+        if (weekEducations.isEmpty()) {
+            return ResponseEntity.ok(TodosThisWeekResponse.builder()
+                .todoCount(0)
+                .items(List.of())
+                .build());
+        }
+
+        // 교육 ID 목록 추출
+        Set<UUID> educationIds = weekEducations.stream()
+            .map(Education::getId)
+            .collect(Collectors.toSet());
+
+        // 사용자의 해당 교육들에 대한 완료 정보를 한 번에 조회
+        List<EducationProgress> progresses = educationProgressRepository
+            .findByUserUuidAndEducationIdIn(userUuid, educationIds);
+        Set<UUID> completedEducationIds = progresses.stream()
+            .filter(p -> Boolean.TRUE.equals(p.getIsCompleted()))
             .map(EducationProgress::getEducationId)
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
 
         // 미완료 교육만 필터링
         List<TodoItem> items = new ArrayList<>();

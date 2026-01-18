@@ -6,18 +6,8 @@ import com.ctrlf.education.dto.EducationRequests.UpdateEducationRequest;
 import com.ctrlf.education.dto.EducationResponses;
 import com.ctrlf.education.dto.EducationResponses.EducationDetailResponse;
 import com.ctrlf.education.dto.EducationResponses.EducationVideosResponse;
-import com.ctrlf.education.service.EducationService;
-import com.ctrlf.education.entity.Education;
-import com.ctrlf.education.repository.EducationRepository;
+import com.ctrlf.education.service.AdminEducationService;
 import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
-import com.ctrlf.education.video.entity.EducationVideo;
-import com.ctrlf.education.video.repository.EducationVideoRepository;
-import com.ctrlf.education.video.repository.SourceSetRepository;
-import com.ctrlf.education.video.repository.SourceSetDocumentRepository;
-import com.ctrlf.education.video.entity.SourceSetDocument;
-import com.ctrlf.education.script.client.InfraRagClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -28,9 +18,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+
 import java.net.URI;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,42 +35,20 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-// import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * 교육 리소스 어드민 전용 컨트롤러.
- * - 생성/상세/수정/삭제 등 관리 기능 제공
+ * 교육 리소스 어드민 전용 컨트롤러
  */
 @RestController
 @Tag(name = "Education-Admin", description = "교육 리소스 관리 API (ADMIN)")
 @SecurityRequirement(name = "bearer-jwt")
 @RequestMapping("/admin")
-// @PreAuthorize("hasRole('SYSTEM_ADMIN')") 추후 추가
 public class AdminEducationController {
 
-    private static final Logger log = LoggerFactory.getLogger(AdminEducationController.class);
+    private final AdminEducationService adminEducationService;
 
-    private final EducationService educationService;
-    private final EducationRepository educationRepository;
-    private final EducationVideoRepository educationVideoRepository;
-    private final SourceSetRepository sourceSetRepository;
-    private final SourceSetDocumentRepository sourceSetDocumentRepository;
-    private final InfraRagClient infraRagClient;
-
-    public AdminEducationController(
-        EducationService educationService,
-        EducationRepository educationRepository,
-        EducationVideoRepository educationVideoRepository,
-        SourceSetRepository sourceSetRepository,
-        SourceSetDocumentRepository sourceSetDocumentRepository,
-        InfraRagClient infraRagClient
-    ) {
-        this.educationService = educationService;
-        this.educationRepository = educationRepository;
-        this.educationVideoRepository = educationVideoRepository;
-        this.sourceSetRepository = sourceSetRepository;
-        this.sourceSetDocumentRepository = sourceSetDocumentRepository;
-        this.infraRagClient = infraRagClient;
+    public AdminEducationController(AdminEducationService adminEducationService) {
+        this.adminEducationService = adminEducationService;
     }
 
     @PostMapping("/edu")
@@ -125,8 +94,8 @@ public class AdminEducationController {
         @ApiResponse(responseCode = "201", description = "생성됨"),
         @ApiResponse(responseCode = "400", description = "잘못된 요청")
     })
-    public ResponseEntity<MutationResponse<UUID>> createEducation(@jakarta.validation.Valid @RequestBody CreateEducationRequest req) {
-        MutationResponse<UUID> res = educationService.createEducation(req);
+    public ResponseEntity<MutationResponse<UUID>> createEducation(@Valid @RequestBody CreateEducationRequest req) {
+        MutationResponse<UUID> res = adminEducationService.createEducation(req);
         return ResponseEntity
             .created(URI.create("/admin/edu/" + res.getId()))
             .body(res);
@@ -172,7 +141,7 @@ public class AdminEducationController {
         @ApiResponse(responseCode = "404", description = "교육을 찾을 수 없음")
     })
     public ResponseEntity<EducationDetailResponse> getEducationDetail(@PathVariable("id") UUID id) {
-        return ResponseEntity.ok(educationService.getEducationDetail(id));
+        return ResponseEntity.ok(adminEducationService.getEducationDetail(id));
     }
 
     @PutMapping("/edu/{id}")
@@ -228,7 +197,7 @@ public class AdminEducationController {
         @PathVariable("id") UUID id,
         @RequestBody UpdateEducationRequest req
     ) {
-        Instant updatedAt = educationService.updateEducation(id, req);
+        Instant updatedAt = adminEducationService.updateEducation(id, req);
         return ResponseEntity.ok(Map.of("eduId", id, "updated", true, "updatedAt", updatedAt.toString()));
     }
 
@@ -255,7 +224,7 @@ public class AdminEducationController {
         @ApiResponse(responseCode = "404", description = "교육을 찾을 수 없음")
     })
     public ResponseEntity<Map<String, Object>> deleteEducation(@PathVariable("id") UUID id) {
-        educationService.deleteEducation(id);
+        adminEducationService.deleteEducation(id);
         return ResponseEntity.ok(Map.of("eduId", id, "status", "DELETED"));
     }
 
@@ -299,106 +268,7 @@ public class AdminEducationController {
     )
     public ResponseEntity<List<EducationVideosResponse>> getAllEducationsWithVideos(
             @RequestParam(value = "status", required = false) VideoStatus status) {
-        List<Education> edus = educationRepository.findAll();
-        List<EducationVideosResponse> result = new ArrayList<>();
-        for (Education e : edus) {
-            List<EducationVideo> videos;
-            if (status != null) {
-                // status 필터 적용
-                videos = educationVideoRepository.findByEducationIdAndStatusOrderByOrderIndexAscCreatedAtAsc(
-                    e.getId(), status.name());
-            } else {
-                // 모든 영상 조회
-                videos = educationVideoRepository.findByEducationIdOrderByOrderIndexAscCreatedAtAsc(e.getId());
-            }
-            List<EducationVideosResponse.VideoItem> items = new ArrayList<>();
-            for (EducationVideo v : videos) {
-                // SourceSet을 통해 documentId 조회하여 파일 정보 가져오기
-                String sourceFileName = null;
-                String sourceFileUrl = null;
-                // log.info("sourceSetId: {}", v.getSourceSetId());
-
-                if (v.getSourceSetId() != null) {
-                    try {
-                        // SourceSet의 첫 번째 문서 ID 가져오기
-                        List<SourceSetDocument> documents = sourceSetDocumentRepository.findBySourceSetId(v.getSourceSetId());
-                        if (!documents.isEmpty()) {
-                            UUID documentId = documents.get(0).getDocumentId();
-                            // infra-service에서 문서 정보 조회
-
-                            try {
-                                InfraRagClient.DocumentInfoResponse docInfo = infraRagClient.getDocument(documentId.toString());
-                                log.info("docInfo: sourceUrl={}, title={}", docInfo.getSourceUrl(), docInfo.getTitle());
-
-                                if (docInfo != null) {
-                                    if (docInfo.getSourceUrl() != null) {
-                                        sourceFileUrl = docInfo.getSourceUrl();
-                                    }
-                                    // title을 원본 파일명으로 사용 (sourceUrl은 UUID 형식이므로 사용 불가)
-                                    if (docInfo.getTitle() != null && !docInfo.getTitle().isBlank()) {
-                                        sourceFileName = docInfo.getTitle();
-                                    }
-                                }
-                            } catch (Exception ex) {
-                                // 에러 메시지가 너무 길 경우 간단히 처리
-                                String errorMsg = ex.getClass().getSimpleName();
-                                String detailMsg = ex.getMessage();
-                                if (detailMsg != null) {
-                                    // "404 Not Found" 같은 간단한 메시지만 추출
-                                    if (detailMsg.contains("404")) {
-                                        errorMsg = "404 Not Found";
-                                    } else if (detailMsg.length() > 100) {
-                                        errorMsg = errorMsg + ": " + detailMsg.substring(0, 100) + "...";
-                                    } else {
-                                        errorMsg = errorMsg + ": " + detailMsg;
-                                    }
-                                }
-                                log.info("문서 정보 조회 실패: videoId={}, documentId={}, error={}", 
-                                    v.getId(), documentId, errorMsg);
-                            }
-                        } else {
-                            log.info("SourceSet에 문서가 없음333: videoId={}, sourceSetId={}", v.getId(), v.getSourceSetId());
-                        }
-                    } catch (Exception ex) {
-                        log.info("SourceSet 문서 조회 실패: videoId={}", 
-                            v.getId());
-
-
-                        // log.info("SourceSet 문서 조회 실패: videoId={}, sourceSetId={}, error={}", 
-                        //     v.getId(), v.getSourceSetId(), ex.getMessage());
-                    }
-                } else {
-                    log.info("EducationVideo에 sourceSetId가 없음: videoId={}", v.getId());
-                }
-
-                items.add(new EducationVideosResponse.VideoItem(
-                    v.getId(),
-                    v.getTitle(),
-                    v.getFileUrl(),
-                    v.getDuration() != null ? v.getDuration() : 0,
-                    v.getVersion() != null ? v.getVersion() : 1,
-                    v.getStatus(),
-                    e.getDepartmentScope(),
-                    // 사용자 별 데이터라 null로 표시
-                    null, // resumePosition
-                    null, // isCompleted
-                    null, // totalWatchSeconds
-                    null, // progressPercent
-                    null, // watchStatus
-                    sourceFileName, // sourceFileName
-                    sourceFileUrl   // sourceFileUrl
-                ));
-            }
-            result.add(EducationVideosResponse.builder()
-                .id(e.getId())
-                .title(e.getTitle())
-                .startAt(e.getStartAt())
-                .endAt(e.getEndAt())
-                .departmentScope(e.getDepartmentScope())
-                .videos(items)
-                .build());
-        }
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(adminEducationService.getAllEducationsWithVideos(status));
     }
 
     // ========================
@@ -419,7 +289,7 @@ public class AdminEducationController {
         @RequestParam(value = "period", required = false) Integer period,
         @Parameter(description = "부서 필터", example = "총무팀")
         @RequestParam(value = "department", required = false) String department) {
-        return ResponseEntity.ok(educationService.getDashboardSummary(period, department));
+        return ResponseEntity.ok(adminEducationService.getDashboardSummary(period, department));
     }
 
     @GetMapping("/dashboard/education/mandatory-completion")
@@ -436,7 +306,7 @@ public class AdminEducationController {
         @RequestParam(value = "period", required = false) Integer period,
         @Parameter(description = "부서 필터", example = "총무팀")
         @RequestParam(value = "department", required = false) String department) {
-        return ResponseEntity.ok(educationService.getMandatoryCompletion(period, department));
+        return ResponseEntity.ok(adminEducationService.getMandatoryCompletion(period, department));
     }
 
     @GetMapping("/dashboard/education/job-completion")
@@ -453,7 +323,7 @@ public class AdminEducationController {
         @RequestParam(value = "period", required = false) Integer period,
         @Parameter(description = "부서 필터", example = "총무팀")
         @RequestParam(value = "department", required = false) String department) {
-        return ResponseEntity.ok(educationService.getJobEducationCompletion(period, department));
+        return ResponseEntity.ok(adminEducationService.getJobEducationCompletion(period, department));
     }
 
     @GetMapping("/dashboard/education/department-completion")
@@ -468,7 +338,7 @@ public class AdminEducationController {
     public ResponseEntity<EducationResponses.DepartmentCompletionResponse> getDepartmentCompletion(
         @Parameter(description = "기간 (일수, 7/30/90)", example = "30")
         @RequestParam(value = "period", required = false) Integer period) {
-        return ResponseEntity.ok(educationService.getDepartmentCompletion(period));
+        return ResponseEntity.ok(adminEducationService.getDepartmentCompletion(period));
     }
 }
 

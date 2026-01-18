@@ -1,5 +1,6 @@
 package com.ctrlf.education.video.repository;
 
+import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.entity.EducationVideo;
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +49,7 @@ public interface EducationVideoRepository extends JpaRepository<EducationVideo, 
      */
     @Query("SELECT v FROM EducationVideo v WHERE v.educationId = :educationId AND v.status = :status AND v.deletedAt IS NULL ORDER BY v.orderIndex ASC, v.createdAt ASC")
     List<EducationVideo> findByEducationIdAndStatusOrderByOrderIndexAscCreatedAtAsc(
-        @Param("educationId") UUID educationId, @Param("status") String status);
+        @Param("educationId") UUID educationId, @Param("status") VideoStatus status);
 
     /**
      * 검토 대기 영상 조회 (SCRIPT_REVIEW_REQUESTED 또는 FINAL_REVIEW_REQUESTED).
@@ -87,6 +88,24 @@ public interface EducationVideoRepository extends JpaRepository<EducationVideo, 
            "INNER JOIN EducationVideoReview r ON v.id = r.videoId " +
            "WHERE r.deletedAt IS NULL AND v.deletedAt IS NULL")
     List<EducationVideo> findRejectedVideos();
+
+    /**
+     * 삭제되지 않은 모든 영상 조회 (N+1 해결용).
+     */
+    @Query("SELECT v FROM EducationVideo v WHERE v.deletedAt IS NULL ORDER BY v.orderIndex ASC, v.createdAt ASC")
+    List<EducationVideo> findAllNotDeleted();
+
+    /**
+     * 특정 상태의 삭제되지 않은 모든 영상 조회 (N+1 해결용).
+     */
+    @Query("SELECT v FROM EducationVideo v WHERE v.status = :status AND v.deletedAt IS NULL ORDER BY v.orderIndex ASC, v.createdAt ASC")
+    List<EducationVideo> findAllByStatusNotDeleted(@Param("status") VideoStatus status);
+
+    /**
+     * 여러 교육의 특정 상태 영상 한 번에 조회 (N+1 해결용).
+     */
+    @Query("SELECT v FROM EducationVideo v WHERE v.educationId IN :educationIds AND v.status = :status AND v.deletedAt IS NULL ORDER BY v.orderIndex ASC, v.createdAt ASC")
+    List<EducationVideo> findByEducationIdInAndStatus(@Param("educationIds") java.util.Collection<UUID> educationIds, @Param("status") VideoStatus status);
 }
 
 

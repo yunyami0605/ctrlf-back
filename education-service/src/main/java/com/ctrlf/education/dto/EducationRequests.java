@@ -11,13 +11,12 @@ import lombok.Setter;
 import java.time.Instant;
 
 /**
- * 교육 도메인 요청 DTO 묶음.
+ * 교육 도메인 요청 DTO
  */
 public final class EducationRequests {
     private EducationRequests() {}
     /**
      * 교육 생성 요청 DTO.
-     * 제목/카테고리/필수 여부 등의 메타 정보를 포함합니다.
      */
     @Getter
     @Setter
@@ -85,7 +84,6 @@ public final class EducationRequests {
 
     /**
      * 영상 진행률 업데이트 요청 DTO.
-     * 재생 위치/영상 길이/시청 시간(증분)을 포함합니다.
      */
     @Getter
     @Setter

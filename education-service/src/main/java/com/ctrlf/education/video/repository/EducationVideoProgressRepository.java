@@ -46,6 +46,18 @@ public interface EducationVideoProgressRepository extends JpaRepository<Educatio
      */
     @Query("SELECT p FROM EducationVideoProgress p WHERE p.userUuid = :userUuid AND p.deletedAt IS NULL ORDER BY p.updatedAt DESC")
     List<EducationVideoProgress> findLatestByUserUuid(@Param("userUuid") UUID userUuid);
+
+    /**
+     * 사용자의 여러 교육에 대한 진행 정보 한 번에 조회
+     */
+    @Query("SELECT p FROM EducationVideoProgress p WHERE p.userUuid = :userUuid AND p.educationId IN :educationIds AND p.deletedAt IS NULL")
+    List<EducationVideoProgress> findByUserUuidAndEducationIdIn(@Param("userUuid") UUID userUuid, @Param("educationIds") java.util.Collection<UUID> educationIds);
+
+    /**
+     * 사용자의 특정 교육에 대한 여러 영상 진행 정보 한 번에 조회
+     */
+    @Query("SELECT p FROM EducationVideoProgress p WHERE p.userUuid = :userUuid AND p.educationId = :educationId AND p.videoId IN :videoIds AND p.deletedAt IS NULL")
+    List<EducationVideoProgress> findByUserUuidAndEducationIdAndVideoIdIn(@Param("userUuid") UUID userUuid, @Param("educationId") UUID educationId, @Param("videoIds") java.util.Collection<UUID> videoIds);
 }
 
 

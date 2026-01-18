@@ -17,14 +17,6 @@ import org.springframework.web.client.RestClient;
 
 /**
  * AI 서버(Storage Provider = backend_presigned) 호환용 내부 Storage API.
- *
- * AI는 아래 엔드포인트를 호출한다:
- * - POST /internal/storage/presign-put
- * - POST /internal/storage/complete
- * - POST /internal/storage/delete (옵션)
- *
- * 실제 presign 발급은 infra-service의 기존 API(/infra/files/presign/upload)를 사용한다.
- * (주의) infra-service는 key를 랜덤 생성하므로, object_key는 추적용으로만 취급한다.
  */
 @RestController
 @RequestMapping("/internal/storage")

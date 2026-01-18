@@ -4,6 +4,7 @@ import com.ctrlf.education.entity.Education;
 import com.ctrlf.education.entity.EducationCategory;
 import com.ctrlf.education.entity.EducationTopic;
 import com.ctrlf.education.repository.EducationRepository;
+import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.entity.EducationVideo;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
 
@@ -227,7 +228,7 @@ public class ProductionSeedRunner implements CommandLineRunner {
             "s3://ctrl-s3/videos/bc36db11-d500-4a7d-9a13-af71c06d5f5c.mp4",
             1200,
             1,
-            "PUBLISHED"
+            VideoStatus.PUBLISHED
         );
         video.setOrderIndex(0);
         educationVideoRepository.save(video);

@@ -203,8 +203,8 @@ public class VideoService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "영상 컨텐츠를 찾을 수 없습니다: " + request.videoId()));
 
         // 스크립트 승인 상태 확인 (1차 승인 후에만 영상 생성 가능)
-        final String prevVideoStatus = video.getStatus();
-        if (!("SCRIPT_APPROVED".equals(prevVideoStatus) || "READY".equals(prevVideoStatus))) {
+        final VideoStatus prevVideoStatus = video.getStatus();
+        if (prevVideoStatus != VideoStatus.SCRIPT_APPROVED && prevVideoStatus != VideoStatus.READY) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "영상 생성은 SCRIPT_APPROVED 또는 READY 상태에서만 가능합니다. " +
                 "스크립트 검토 승인을 먼저 받아주세요. 현재 상태: " + prevVideoStatus);
@@ -220,7 +220,7 @@ public class VideoService {
 
         // 영상 컨텐츠 상태 업데이트 및 Job 연결
         video.setGenerationJobId(job.getId());
-        video.setStatus("PROCESSING"); // 영상 생성 중 상태
+        video.setStatus(VideoStatus.PROCESSING); // 영상 생성 중 상태
         videoRepository.save(video);
 
         // AI 서버에 렌더 생성 요청 (BestEffort)
@@ -332,12 +332,12 @@ public class VideoService {
             if ("COMPLETED".equals(callback.status()) || "SUCCEEDED".equals(callback.status())) {
                 video.setFileUrl(callback.videoUrl());
                 video.setDuration(callback.duration());
-                video.setStatus("READY"); // 영상 생성 완료 → READY (검토 전)
+                video.setStatus(VideoStatus.READY); // 영상 생성 완료 → READY (검토 전)
                 videoRepository.save(video);
                 log.info("영상 컨텐츠 업데이트 완료. videoId={}, status=READY, fileUrl={}", 
                     video.getId(), callback.videoUrl());
             } else if ("FAILED".equals(callback.status())) {
-                video.setStatus("DRAFT"); // 실패 시 → DRAFT로 복귀
+                video.setStatus(VideoStatus.DRAFT); // 실패 시 → DRAFT로 복귀
                 videoRepository.save(video);
                 log.warn("영상 생성 실패. videoId={}, status=DRAFT", video.getId());
             }
@@ -430,7 +430,7 @@ public class VideoService {
         EducationVideo video = EducationVideo.createDraft(request.educationId(), request.title(), creatorUuid);
         video = videoRepository.save(video);
         log.info("영상 컨텐츠 생성. videoId={}, title={}, status={}, creatorUuid={}", video.getId(), video.getTitle(), video.getStatus(), creatorUuid);
-        return new VideoCreateResponse(video.getId(), video.getStatus());
+        return new VideoCreateResponse(video.getId(), video.getStatus() != null ? video.getStatus().name() : null);
     }
 
     /**
@@ -463,7 +463,7 @@ public class VideoService {
         if (request.fileUrl() != null) video.setFileUrl(request.fileUrl());
         if (request.version() != null) video.setVersion(request.version());
         if (request.duration() != null) video.setDuration(request.duration());
-        if (request.status() != null) video.setStatus(request.status().name());
+        if (request.status() != null) video.setStatus(request.status());
         if (request.orderIndex() != null) video.setOrderIndex(request.orderIndex());
         video = videoRepository.save(video);
         log.info("영상 컨텐츠 수정. videoId={}, status={}", video.getId(), video.getStatus());
@@ -505,22 +505,22 @@ public class VideoService {
     @Transactional
     public VideoStatusResponse requestReview(UUID videoId) {
         EducationVideo video = findVideoOrThrow(videoId);
-        String prevStatus = video.getStatus();
-        String newStatus;
+        VideoStatus prevStatus = video.getStatus();
+        VideoStatus newStatus;
 
         UUID scriptId = video.getScriptId();
         EducationScript script = scriptRepository.findById(scriptId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "스크립트를 찾을 수 없습니다: " + scriptId));
         
-        if ("SCRIPT_READY".equals(prevStatus)) {
+        if (prevStatus == VideoStatus.SCRIPT_READY) {
             script.setStatus("REVIEW_REQUESTED");
             scriptRepository.save(script);
             // 1차 검토 요청 (스크립트)
-            newStatus = "SCRIPT_REVIEW_REQUESTED";
+            newStatus = VideoStatus.SCRIPT_REVIEW_REQUESTED;
             
             log.info("1차 검토 요청 (스크립트). videoId={}, {} → {}", videoId, prevStatus, newStatus);
-        } else if ("READY".equals(prevStatus)) {
+        } else if (prevStatus == VideoStatus.READY) {
             // 2차 검토 요청 (영상)
-            newStatus = "FINAL_REVIEW_REQUESTED";
+            newStatus = VideoStatus.FINAL_REVIEW_REQUESTED;
             log.info("2차 검토 요청 (영상). videoId={}, {} → {}", videoId, prevStatus, newStatus);
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
@@ -530,7 +530,7 @@ public class VideoService {
         video.setStatus(newStatus);
         video = videoRepository.save(video);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        return new VideoStatusResponse(video.getId(), prevStatus.name(), video.getStatus().name(), Instant.now().toString());
     }
 
     /**
@@ -543,20 +543,20 @@ public class VideoService {
         EducationVideo video = findVideoOrThrow(videoId);
         UUID scriptId = video.getScriptId();
         EducationScript script = scriptRepository.findById(scriptId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "스크립트를 찾을 수 없습니다: " + scriptId));
-        String prevStatus = video.getStatus();
-        String newStatus;
+        VideoStatus prevStatus = video.getStatus();
+        VideoStatus newStatus;
         
-        if ("SCRIPT_REVIEW_REQUESTED".equals(prevStatus)) {
+        if (prevStatus == VideoStatus.SCRIPT_REVIEW_REQUESTED) {
             // 1차 승인 (스크립트)
 
             script.setStatus("APPROVED");
             scriptRepository.save(script);
 
-            newStatus = "SCRIPT_APPROVED";
+            newStatus = VideoStatus.SCRIPT_APPROVED;
             log.info("1차 승인 (스크립트). videoId={}, {} → {}", videoId, prevStatus, newStatus);
-        } else if ("FINAL_REVIEW_REQUESTED".equals(prevStatus)) {
+        } else if (prevStatus == VideoStatus.FINAL_REVIEW_REQUESTED) {
             // 2차 승인 (영상) = 게시
-            newStatus = "PUBLISHED";
+            newStatus = VideoStatus.PUBLISHED;
             log.info("2차 승인 (영상) → 게시. videoId={}, {} → {}", videoId, prevStatus, newStatus);
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
@@ -566,7 +566,7 @@ public class VideoService {
         video.setStatus(newStatus);
         video = videoRepository.save(video);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        return new VideoStatusResponse(video.getId(), prevStatus.name(), video.getStatus().name(), Instant.now().toString());
     }
 
     /**
@@ -579,18 +579,18 @@ public class VideoService {
         EducationVideo video = findVideoOrThrow(videoId);
         UUID scriptId = video.getScriptId();
         EducationScript script = scriptRepository.findById(scriptId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "스크립트를 찾을 수 없습니다: " + scriptId));
-        String prevStatus = video.getStatus();
-        String newStatus;
+        VideoStatus prevStatus = video.getStatus();
+        VideoStatus newStatus;
         
-        if ("SCRIPT_REVIEW_REQUESTED".equals(prevStatus)) {
+        if (prevStatus == VideoStatus.SCRIPT_REVIEW_REQUESTED) {
             // 1차 반려 (스크립트)
             script.setStatus("REJECTED");
             scriptRepository.save(script);
-            newStatus = "SCRIPT_READY";
+            newStatus = VideoStatus.SCRIPT_READY;
             log.info("1차 반려 (스크립트). videoId={}, {} → {}, reason={}", videoId, prevStatus, newStatus, reason);
-        } else if ("FINAL_REVIEW_REQUESTED".equals(prevStatus)) {
+        } else if (prevStatus == VideoStatus.FINAL_REVIEW_REQUESTED) {
             // 2차 반려 (영상)
-            newStatus = "READY";
+            newStatus = VideoStatus.READY;
             log.info("2차 반려 (영상). videoId={}, {} → {}, reason={}", videoId, prevStatus, newStatus, reason);
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
@@ -600,7 +600,7 @@ public class VideoService {
         // 반려 사유 저장 (EducationVideoReview 테이블)
         if (reason != null && !reason.isBlank()) {
             RejectionStage rejectionStage = 
-                "SCRIPT_REVIEW_REQUESTED".equals(prevStatus) 
+                prevStatus == VideoStatus.SCRIPT_REVIEW_REQUESTED 
                     ? RejectionStage.SCRIPT 
                     : RejectionStage.VIDEO;
                     
@@ -617,7 +617,7 @@ public class VideoService {
         video.setStatus(newStatus);
         video = videoRepository.save(video);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        return new VideoStatusResponse(video.getId(), prevStatus.name(), video.getStatus().name(), Instant.now().toString());
     }
 
     /**
@@ -637,21 +637,21 @@ public class VideoService {
         
         // 첫 번째 Video 사용 (일반적으로 1:1 관계)
         EducationVideo video = videos.get(0);
-        String prevStatus = video.getStatus();
+        VideoStatus prevStatus = video.getStatus();
         
-        if (!"SCRIPT_REVIEW_REQUESTED".equals(prevStatus)) {
+        if (prevStatus != VideoStatus.SCRIPT_REVIEW_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "스크립트 승인은 SCRIPT_REVIEW_REQUESTED 상태에서만 가능합니다. 현재 상태: " + prevStatus);
         }
         
-        String newStatus = "SCRIPT_APPROVED";
+        VideoStatus newStatus = VideoStatus.SCRIPT_APPROVED;
         log.info("스크립트 승인. scriptId={}, videoId={}, {} → {}", scriptId, video.getId(), prevStatus, newStatus);
         
         video.setStatus(newStatus);
         script.setStatus("APPROVED");
         video = videoRepository.save(video);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        return new VideoStatusResponse(video.getId(), prevStatus.name(), video.getStatus().name(), Instant.now().toString());
     }
 
     /**
@@ -671,14 +671,14 @@ public class VideoService {
         
         // 첫 번째 Video 사용 (일반적으로 1:1 관계)
         EducationVideo video = videos.get(0);
-        String prevStatus = video.getStatus();
+        VideoStatus prevStatus = video.getStatus();
         
-        if (!"SCRIPT_REVIEW_REQUESTED".equals(prevStatus)) {
+        if (prevStatus != VideoStatus.SCRIPT_REVIEW_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "스크립트 반려는 SCRIPT_REVIEW_REQUESTED 상태에서만 가능합니다. 현재 상태: " + prevStatus);
         }
         
-        String newStatus = "SCRIPT_READY";
+        VideoStatus newStatus = VideoStatus.SCRIPT_READY;
         log.info("스크립트 반려. scriptId={}, videoId={}, {} → {}, reason={}", 
             scriptId, video.getId(), prevStatus, newStatus, reason);
         
@@ -698,7 +698,7 @@ public class VideoService {
         script.setStatus("REJECTED");
         video = videoRepository.save(video);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        return new VideoStatusResponse(video.getId(), prevStatus.name(), video.getStatus().name(), Instant.now().toString());
     }
 
     /**
@@ -708,11 +708,11 @@ public class VideoService {
     @Transactional
     public VideoStatusResponse publishVideo(UUID videoId) {
         EducationVideo video = findVideoOrThrow(videoId);
-        String prevStatus = video.getStatus();
+        VideoStatus prevStatus = video.getStatus();
         
         // 이미 PUBLISHED면 그냥 반환
-        if ("PUBLISHED".equals(prevStatus)) {
-            return new VideoStatusResponse(video.getId(), prevStatus, prevStatus, Instant.now().toString());
+        if (prevStatus == VideoStatus.PUBLISHED) {
+            return new VideoStatusResponse(video.getId(), prevStatus.name(), prevStatus.name(), Instant.now().toString());
         }
         
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
@@ -728,20 +728,20 @@ public class VideoService {
     @Transactional
     public VideoStatusResponse disableVideo(UUID videoId) {
         EducationVideo video = findVideoOrThrow(videoId);
-        String prevStatus = video.getStatus();
+        VideoStatus prevStatus = video.getStatus();
         
-        if (!"PUBLISHED".equals(prevStatus)) {
+        if (prevStatus != VideoStatus.PUBLISHED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "비활성화는 PUBLISHED 상태에서만 가능합니다. 현재 상태: " + prevStatus);
         }
         
-        String newStatus = "DISABLED";
+        VideoStatus newStatus = VideoStatus.DISABLED;
         log.info("영상 비활성화. videoId={}, {} → {}", videoId, prevStatus, newStatus);
         
         video.setStatus(newStatus);
         video = videoRepository.save(video);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        return new VideoStatusResponse(video.getId(), prevStatus.name(), video.getStatus().name(), Instant.now().toString());
     }
 
     /**
@@ -751,35 +751,43 @@ public class VideoService {
     @Transactional
     public VideoStatusResponse enableVideo(UUID videoId) {
         EducationVideo video = findVideoOrThrow(videoId);
-        String prevStatus = video.getStatus();
+        VideoStatus prevStatus = video.getStatus();
         
-        if (!"DISABLED".equals(prevStatus)) {
+        if (prevStatus != VideoStatus.DISABLED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
                 "활성화는 DISABLED 상태에서만 가능합니다. 현재 상태: " + prevStatus);
         }
         
-        String newStatus = "PUBLISHED";
+        VideoStatus newStatus = VideoStatus.PUBLISHED;
         log.info("영상 활성화. videoId={}, {} → {}", videoId, prevStatus, newStatus);
         
         video.setStatus(newStatus);
         video = videoRepository.save(video);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        return new VideoStatusResponse(video.getId(), prevStatus.name(), video.getStatus().name(), Instant.now().toString());
     }
 
     /**
      * [어드민 테스트용] 상태 강제 변경 (상태 검증 없음).
      */
     @Transactional
-    public VideoStatusResponse forceChangeStatus(UUID videoId, String newStatus) {
+    public VideoStatusResponse forceChangeStatus(UUID videoId, String newStatusStr) {
         EducationVideo video = findVideoOrThrow(videoId);
-        String prevStatus = video.getStatus();
+        VideoStatus prevStatus = video.getStatus();
+        
+        VideoStatus newStatus;
+        try {
+            newStatus = VideoStatus.valueOf(newStatusStr);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효하지 않은 상태값: " + newStatusStr);
+        }
         
         video.setStatus(newStatus);
         video = videoRepository.save(video);
         log.warn("[어드민 테스트] 상태 강제 변경. videoId={}, {} → {}", videoId, prevStatus, newStatus);
         
-        return new VideoStatusResponse(video.getId(), prevStatus, video.getStatus(), Instant.now().toString());
+        String prev = prevStatus != null ? prevStatus.name() : null;
+        return new VideoStatusResponse(video.getId(), prev, video.getStatus().name(), Instant.now().toString());
     }
 
     // ========================
@@ -792,14 +800,7 @@ public class VideoService {
     }
 
     private VideoMetaItem toVideoMetaItem(EducationVideo v) {
-        VideoStatus status = null;
-        if (v.getStatus() != null) {
-            try {
-                status = VideoStatus.valueOf(v.getStatus());
-            } catch (IllegalArgumentException e) {
-                log.warn("알 수 없는 영상 상태: {}, videoId={}", v.getStatus(), v.getId());
-            }
-        }
+        VideoStatus status = v.getStatus();
         // Education에서 departmentScope와 category 가져오기
         List<String> departmentScope = null;
         String category = null;
@@ -908,12 +909,12 @@ public class VideoService {
                 if (reviewStageFilter != null && !reviewStageFilter.isBlank()) {
                     if ("first".equals(reviewStageFilter)) {
                         // 1차 검토만
-                        if (!"SCRIPT_REVIEW_REQUESTED".equals(v.getStatus())) {
+                        if (v.getStatus() != VideoStatus.SCRIPT_REVIEW_REQUESTED) {
                             return false;
                         }
                     } else if ("second".equals(reviewStageFilter)) {
                         // 2차 검토만
-                        if (!"FINAL_REVIEW_REQUESTED".equals(v.getStatus())) {
+                        if (v.getStatus() != VideoStatus.FINAL_REVIEW_REQUESTED) {
                             return false;
                         }
                     }
@@ -1001,12 +1002,7 @@ public class VideoService {
         List<ReviewQueueItem> items = pagedVideos.stream()
             .map(v -> {
                 Education education = educationMap.get(v.getEducationId());
-                VideoStatus status = null;
-                try {
-                    status = VideoStatus.valueOf(v.getStatus());
-                } catch (IllegalArgumentException e) {
-                    log.warn("알 수 없는 영상 상태: {}", v.getStatus());
-                }
+                VideoStatus status = v.getStatus();
 
                 // reviewStage 설정 로직:
                 // - SCRIPT_REVIEW_REQUESTED → "1차"
@@ -1016,11 +1012,11 @@ public class VideoService {
                 // - 그 외 상태이면서 반려 기록이 없으면 → "" (빈공백)
                 //   예: DRAFT, SCRIPT_READY, SCRIPT_APPROVED, PROCESSING, READY, DISABLED 등 검토 요청/승인 상태가 아니고 반려 기록도 없는 경우
                 ReviewStage reviewStageLabel = null;
-                if ("SCRIPT_REVIEW_REQUESTED".equals(v.getStatus())) {
+                if (v.getStatus() == VideoStatus.SCRIPT_REVIEW_REQUESTED) {
                     reviewStageLabel = ReviewStage.FIRST_ROUND;
-                } else if ("FINAL_REVIEW_REQUESTED".equals(v.getStatus())) {
+                } else if (v.getStatus() == VideoStatus.FINAL_REVIEW_REQUESTED) {
                     reviewStageLabel = ReviewStage.SECOND_ROUND;
-                } else if ("PUBLISHED".equals(v.getStatus())) {
+                } else if (v.getStatus() == VideoStatus.PUBLISHED) {
                     reviewStageLabel = ReviewStage.APPROVED;
                 } else {
                     // 반려됨인 경우 리뷰에서 단계 확인
@@ -1075,10 +1071,10 @@ public class VideoService {
         
         if (statusFilter == null || "pending".equals(statusFilter)) {
             firstRoundCount = allVideos.stream()
-                .filter(v -> "SCRIPT_REVIEW_REQUESTED".equals(v.getStatus()))
+                .filter(v -> v.getStatus() == VideoStatus.SCRIPT_REVIEW_REQUESTED)
                 .count();
             secondRoundCount = allVideos.stream()
-                .filter(v -> "FINAL_REVIEW_REQUESTED".equals(v.getStatus()))
+                .filter(v -> v.getStatus() == VideoStatus.FINAL_REVIEW_REQUESTED)
                 .count();
         }
 
@@ -1213,12 +1209,7 @@ public class VideoService {
         Education education = educationRepository.findById(video.getEducationId())
             .orElse(null);
 
-        VideoStatus status = null;
-        try {
-            status = VideoStatus.valueOf(video.getStatus());
-        } catch (IllegalArgumentException e) {
-            log.warn("알 수 없는 영상 상태: {}", video.getStatus());
-        }
+        VideoStatus status = video.getStatus();
 
         // reviewStage 설정 로직:
         // - SCRIPT_REVIEW_REQUESTED → "1차"
@@ -1228,11 +1219,11 @@ public class VideoService {
         // - 그 외 상태이면서 반려 기록이 없으면 → "" (빈공백)
         //   예: DRAFT, SCRIPT_READY, SCRIPT_APPROVED, PROCESSING, READY, DISABLED 등 검토 요청/승인 상태가 아니고 반려 기록도 없는 경우
         ReviewStage reviewStage = null;
-        if ("SCRIPT_REVIEW_REQUESTED".equals(video.getStatus())) {
+        if (video.getStatus() == VideoStatus.SCRIPT_REVIEW_REQUESTED) {
             reviewStage = ReviewStage.FIRST_ROUND;
-        } else if ("FINAL_REVIEW_REQUESTED".equals(video.getStatus())) {
+        } else if (video.getStatus() == VideoStatus.FINAL_REVIEW_REQUESTED) {
             reviewStage = ReviewStage.SECOND_ROUND;
-        } else if ("PUBLISHED".equals(video.getStatus())) {
+        } else if (video.getStatus() == VideoStatus.PUBLISHED) {
             reviewStage = ReviewStage.APPROVED;
         } else {
             // 반려됨인 경우 리뷰에서 단계 확인
