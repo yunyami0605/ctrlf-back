@@ -2,46 +2,36 @@ package com.ctrlf.education.quiz.client;
 
 import com.ctrlf.education.quiz.client.QuizAiDtos.GenerateRequest;
 import com.ctrlf.education.quiz.client.QuizAiDtos.GenerateResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-
+import org.springframework.web.client.RestClientException;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 /**
  * 퀴즈 AI 서버 호출 클라이언트 (RestClient 방식).
- * 
- * <p>기능:
- * <ul>
- *   <li>퀴즈 문항 자동 생성 요청</li>
- * </ul>
- * 
- * <p>엔드포인트:
- * <ul>
- *   <li>POST /ai/quiz/generate - 퀴즈 문항 생성</li>
- * </ul>
  */
 @Component
 public class QuizAiClient {
 
+    private static final Logger log = LoggerFactory.getLogger(QuizAiClient.class);
+
     private final RestClient restClient;
 
     /**
-     * RestClient를 구성하여 초기화합니다.
+     * RestClient를 구성하여 초기화
      * 
-     * @param baseUrl AI 서버 베이스 URL
      * @param internalToken 내부 인증 토큰(옵션)
      */
     public QuizAiClient(
         @Value("${app.quiz.ai.base-url:http://localhost:8000}") String baseUrl,
         @Value("${app.quiz.ai.token:}") String internalToken
     ) {
-        // HTTP/1.1을 강제하기 위해 SimpleClientHttpRequestFactory 사용
-        // FastAPI/Uvicorn은 HTTP/2를 지원하지 않으므로 HTTP/1.1을 사용해야 함
-        // SimpleClientHttpRequestFactory는 HTTP/1.1만 지원하므로 HTTP/2 업그레이드 시도를 방지
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(30000);  // 연결 타임아웃: 30초
-        requestFactory.setReadTimeout(600000);     // 읽기 타임아웃: 120초 (퀴즈 생성은 LLM 호출로 시간이 걸림)
+        requestFactory.setReadTimeout(600000);     // 읽기 타임아웃: 600초(10분) - 퀴즈 생성은 LLM 호출로 시간이 걸림
         
         RestClient.Builder builder = RestClient.builder()
             .baseUrl(baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl)
@@ -58,16 +48,44 @@ public class QuizAiClient {
     /**
      * 퀴즈 문항 자동 생성 요청.
      * 
-     * @param request 생성 요청 (educationId, attemptNo, language, numQuestions, questionType)
+     * @param request 생성 요청 (language, numQuestions, quizCandidateBlocks 등)
      * @return 생성된 문항 목록
-     * @throws org.springframework.web.client.RestClientException 네트워크/서버 오류 시
+     * @throws RestClientException 네트워크/서버 오류 시
      */
     public GenerateResponse generate(GenerateRequest request) {
-        return restClient.post()
-            .uri("/ai/quiz/generate")
-            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-            .body(request)
-            .retrieve()
-            .body(GenerateResponse.class);
+        try {
+            log.info("AI 퀴즈 생성 요청: language={}, numQuestions={}, quizCandidateBlocksCount={}",
+                request.getLanguage(), request.getNumQuestions(),
+                request.getQuizCandidateBlocks() != null ? request.getQuizCandidateBlocks().size() : 0);
+
+            GenerateResponse response = restClient.post()
+                .uri("/ai/quiz/generate")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, res) -> {
+                    String errorBody = "";
+                    try {
+                        errorBody = res.getBody() != null ? res.getBody().toString() : "";
+                    } catch (Exception e) {}
+                    
+                    log.error("AI 퀴즈 생성 실패: status={}, language={}, numQuestions={}, errorBody={}",
+                        res.getStatusCode(), request.getLanguage(), request.getNumQuestions(), errorBody);
+                    throw new RestClientException(
+                        String.format("AI 서비스 오류: HTTP %s - %s", res.getStatusCode(), errorBody)
+                    );
+                })
+                .body(GenerateResponse.class);
+
+            log.info("AI 퀴즈 생성 응답: generatedCount={}, questionsCount={}",
+                response != null ? response.getGeneratedCount() : null,
+                response != null && response.getQuestions() != null ? response.getQuestions().size() : 0);
+
+            return response;
+        } catch (RestClientException e) {
+            log.error("AI 퀴즈 생성 요청 실패: language={}, numQuestions={}, error={}",
+                request.getLanguage(), request.getNumQuestions(), e.getMessage(), e);
+            throw e;
+        }
     }
 }

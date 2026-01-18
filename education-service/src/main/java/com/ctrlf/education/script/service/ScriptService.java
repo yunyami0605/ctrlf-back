@@ -167,8 +167,7 @@ public class ScriptService {
       EducationScript latestScript = scripts.get(0); // 최신 버전
       
       // videoId 찾기 (있으면)
-      UUID foundVideoId = videoRepository.findAll().stream()
-          .filter(v -> latestScript.getId().equals(v.getScriptId()))
+      UUID foundVideoId = videoRepository.findByScriptId(latestScript.getId()).stream()
           .map(EducationVideo::getId)
           .findFirst()
           .orElse(null);
@@ -200,22 +199,11 @@ public class ScriptService {
         .orElseThrow(() -> new ResponseStatusException(
             HttpStatus.NOT_FOUND, "스크립트를 찾을 수 없습니다: " + scriptId));
 
-    // videoId 찾기 (sourceSetId 통해 또는 직접 연결)
-    String videoIdStr = null;
-    if (script.getSourceSetId() != null) {
-      videoIdStr = videoRepository.findAll().stream()
-          .filter(v -> script.getId().equals(v.getScriptId()))
-          .map(v -> v.getId().toString())
-          .findFirst()
-          .orElse(null);
-    }
-    if (videoIdStr == null) {
-      // scriptId로 직접 연결된 video 찾기
-      videoIdStr = videoRepository.findByScriptId(scriptId).stream()
-          .findFirst()
-          .map(v -> v.getId().toString())
-          .orElse("");
-    }
+    // videoId 찾기 (scriptId로 직접 연결된 video 찾기)
+    String videoIdStr = videoRepository.findByScriptId(scriptId).stream()
+        .findFirst()
+        .map(v -> v.getId().toString())
+        .orElse("");
 
     // 챕터/씬 조회 및 렌더 스펙으로 변환
     List<EducationScriptChapter> chapters = 
@@ -457,14 +445,6 @@ public class ScriptService {
       scriptEntity.setRawPayload("{}");
     }
     scriptEntity = scriptRepository.save(scriptEntity);
-    
-    // 저장 확인: 실제로 DB에 저장되었는지 확인
-    EducationScript savedScript = scriptRepository.findById(scriptEntity.getId()).orElse(null);
-    if (savedScript == null) {
-      log.error("스크립트 저장 실패: scriptId={}가 DB에 저장되지 않음", scriptEntity.getId());
-      throw new IllegalStateException("스크립트 저장 실패: " + scriptEntity.getId());
-    }
-    log.debug("스크립트 저장 확인: scriptId={}, title={}", savedScript.getId(), savedScript.getTitle());
 
     // 챕터 및 씬 저장
     try {
@@ -515,20 +495,11 @@ public class ScriptService {
       log.error("챕터/씬 저장 중 예외 발생: scriptId={}, error={}", scriptEntity.getId(), e.getMessage(), e);
       throw e; // 예외를 다시 던져서 트랜잭션 롤백
     }
-
-    // 최종 저장 확인: 트랜잭션 커밋 전 최종 확인
-    UUID finalScriptId = scriptEntity.getId();
-    EducationScript finalCheck = scriptRepository.findById(finalScriptId).orElse(null);
-    if (finalCheck == null) {
-      log.error("스크립트 최종 확인 실패: scriptId={}가 DB에서 찾을 수 없음", finalScriptId);
-    } else {
-      log.debug("스크립트 최종 확인 성공: scriptId={}, title={}", finalCheck.getId(), finalCheck.getTitle());
-    }
     
     log.info("SourceSet 스크립트 저장 완료: sourceSetId={}, scriptId={}, educationId={}",
-        sourceSetId, finalScriptId, educationId);
+        sourceSetId, scriptEntity.getId(), educationId);
 
-    return finalScriptId;
+    return scriptEntity.getId();
   }
 
   /**

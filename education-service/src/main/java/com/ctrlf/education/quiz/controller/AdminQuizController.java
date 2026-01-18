@@ -3,7 +3,7 @@ package com.ctrlf.education.quiz.controller;
 import com.ctrlf.education.quiz.dto.QuizResponse.DashboardSummaryResponse;
 import com.ctrlf.education.quiz.dto.QuizResponse.DepartmentScoreResponse;
 import com.ctrlf.education.quiz.dto.QuizResponse.QuizStatsResponse;
-import com.ctrlf.education.quiz.service.QuizService;
+import com.ctrlf.education.quiz.service.AdminQuizService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AdminQuizController {
 
-    private final QuizService quizService;
+    private final AdminQuizService adminQuizService;
 
     @GetMapping("/summary")
     @Operation(
@@ -42,7 +42,7 @@ public class AdminQuizController {
         @RequestParam(value = "period", required = false) Integer period,
         @Parameter(description = "부서 필터", example = "총무팀")
         @RequestParam(value = "department", required = false) String department) {
-        return ResponseEntity.ok(quizService.getDashboardSummary(period, department));
+        return ResponseEntity.ok(adminQuizService.getDashboardSummary(period, department));
     }
 
     @GetMapping("/department-scores")
@@ -60,7 +60,7 @@ public class AdminQuizController {
         @RequestParam(value = "period", required = false) Integer period,
         @Parameter(description = "부서 필터", example = "총무팀")
         @RequestParam(value = "department", required = false) String department) {
-        return ResponseEntity.ok(quizService.getDepartmentScores(period, department));
+        return ResponseEntity.ok(adminQuizService.getDepartmentScores(period, department));
     }
 
     @GetMapping("/quiz-stats")
@@ -78,7 +78,7 @@ public class AdminQuizController {
         @RequestParam(value = "period", required = false) Integer period,
         @Parameter(description = "부서 필터", example = "총무팀")
         @RequestParam(value = "department", required = false) String department) {
-        return ResponseEntity.ok(quizService.getQuizStats(period, department));
+        return ResponseEntity.ok(adminQuizService.getQuizStats(period, department));
     }
 }
 

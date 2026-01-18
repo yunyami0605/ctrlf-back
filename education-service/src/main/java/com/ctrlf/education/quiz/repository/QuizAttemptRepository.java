@@ -1,6 +1,7 @@
 package com.ctrlf.education.quiz.repository;
 
 import com.ctrlf.education.quiz.entity.QuizAttempt;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +28,49 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> 
     
     /** 사용자별 교육의 삭제되지 않은 퀴즈 시도 목록 조회 */
     List<QuizAttempt> findByUserUuidAndEducationIdAndDeletedAtIsNull(UUID userUuid, UUID educationId);
+    
+    /**
+     * 제출 완료된 퀴즈 시도 조회 (기간/부서 필터).
+     * - submittedAt이 startDate 이후인 것만
+     * - deletedAt이 null인 것만
+     * - department 필터 (선택적)
+     */
+    @Query("SELECT a FROM QuizAttempt a WHERE a.submittedAt IS NOT NULL " +
+           "AND a.submittedAt >= :startDate AND a.deletedAt IS NULL " +
+           "AND (:department IS NULL OR :department = '' OR a.department = :department)")
+    List<QuizAttempt> findSubmittedAfterDate(
+        @Param("startDate") Instant startDate,
+        @Param("department") String department
+    );
+    
+    /**
+     * 제출 완료된 퀴즈 시도 조회 (기간 필터, 부서가 있는 것만).
+     * - submittedAt이 startDate 이후인 것만
+     * - deletedAt이 null인 것만
+     * - department가 null이 아니고 비어있지 않은 것만
+     * - department 필터 (선택적)
+     */
+    @Query("SELECT a FROM QuizAttempt a WHERE a.submittedAt IS NOT NULL " +
+           "AND a.submittedAt >= :startDate AND a.deletedAt IS NULL " +
+           "AND a.department IS NOT NULL AND a.department != '' " +
+           "AND (:department IS NULL OR :department = '' OR a.department = :department)")
+    List<QuizAttempt> findSubmittedAfterDateWithDepartment(
+        @Param("startDate") Instant startDate,
+        @Param("department") String department
+    );
+    
+    /**
+     * 사용자별 특정 교육 목록의 제출 완료된 퀴즈 시도 조회.
+     * - 특정 교육 ID 목록에 해당하는 것만 조회
+     * - submittedAt이 null이 아닌 것만
+     */
+    @Query("SELECT a FROM QuizAttempt a WHERE a.userUuid = :userUuid " +
+           "AND a.educationId IN :educationIds AND a.submittedAt IS NOT NULL " +
+           "ORDER BY a.createdAt DESC")
+    List<QuizAttempt> findByUserUuidAndEducationIdInAndSubmittedAtIsNotNullOrderByCreatedAtDesc(
+        @Param("userUuid") UUID userUuid,
+        @Param("educationIds") java.util.Collection<UUID> educationIds
+    );
 }
 
 
