@@ -264,7 +264,7 @@ public class AdminEducationService {
     }
     
     /**
-     * 문서 정보를 배치로 조회 (N+1 해결용).
+     * 문서 정보를 배치로 조회
      */
     private Map<UUID, InfraRagClient.DocumentInfoResponse> fetchDocumentInfoBatch(Set<UUID> documentIds) {
         Map<UUID, InfraRagClient.DocumentInfoResponse> result = new HashMap<>();
@@ -333,7 +333,7 @@ public class AdminEducationService {
     }
 
     /**
-     * infra-service에서 모든 사용자의 부서 정보를 한 번에 조회 (N+1 해결용).
+     * infra-service에서 모든 사용자의 부서 정보를 한 번에 조회
      * @return userId -> department 매핑
      */
     private Map<UUID, String> fetchAllUserDepartmentsFromInfraService() {
@@ -397,7 +397,7 @@ public class AdminEducationService {
         // 기간 필터 적용
         Instant startDate = calculateStartDate(periodDays);
         
-        // 사용자-부서 매핑을 한 번에 조회 (N+1 해결)
+        // 사용자-부서 매핑을 한 번에 조회
         Map<UUID, String> userDepartmentMap = fetchAllUserDepartmentsFromInfraService();
         
         // 기간 내에 완료된 진행 기록만 조회
@@ -539,7 +539,7 @@ public class AdminEducationService {
     public EducationResponses.MandatoryCompletionResponse getMandatoryCompletion(Integer periodDays, String department) {
         Instant startDate = calculateStartDate(periodDays);
         
-        // 사용자-부서 매핑을 한 번에 조회 (N+1 해결)
+        // 사용자-부서 매핑을 한 번에 조회
         Map<UUID, String> userDepartmentMap = fetchAllUserDepartmentsFromInfraService();
         
         // 기간 내에 완료된 진행 기록만 조회
@@ -628,7 +628,7 @@ public class AdminEducationService {
     public EducationResponses.JobEducationCompletionResponse getJobEducationCompletion(Integer periodDays, String department) {
         Instant startDate = calculateStartDate(periodDays);
         
-        // 사용자-부서 매핑을 한 번에 조회 (N+1 해결)
+        // 사용자-부서 매핑을 한 번에 조회
         Map<UUID, String> userDepartmentMap = fetchAllUserDepartmentsFromInfraService();
         
         // 삭제되지 않은 직무 교육만 조회
@@ -690,7 +690,7 @@ public class AdminEducationService {
     public EducationResponses.DepartmentCompletionResponse getDepartmentCompletion(Integer periodDays) {
         Instant startDate = calculateStartDate(periodDays);
         
-        // 사용자-부서 매핑을 한 번에 조회 (N+1 해결)
+        // 사용자-부서 매핑을 한 번에 조회
         Map<UUID, String> userDepartmentMap = fetchAllUserDepartmentsFromInfraService();
         
         // 기간 내에 완료된 진행 기록만 조회

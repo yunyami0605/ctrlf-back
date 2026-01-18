@@ -181,6 +181,43 @@ public class VideoService {
         }
     }
 
+    /**
+     * 여러 사용자의 정보를 배치 조회하여 Map으로 반환
+     * 
+     * @param userIds 사용자 UUID 목록
+     * @return 사용자 UUID를 키로 하는 사용자 정보 Map ([부서명, 사용자명])
+     */
+    private Map<UUID, String[]> fetchUserInfoBatchFromInfraService(List<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        
+        // 중복 제거
+        List<UUID> distinctUserIds = userIds.stream()
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .collect(Collectors.toList());
+        
+        if (distinctUserIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        
+        Map<UUID, String[]> userInfoMap = new java.util.HashMap<>();
+        
+        // 각 사용자 정보 조회 (외부 API가 배치 조회를 지원하지 않으므로 개별 조회)
+        for (UUID userId : distinctUserIds) {
+            try {
+                String[] userInfo = fetchUserInfoFromInfraService(userId);
+                userInfoMap.put(userId, userInfo);
+            } catch (Exception e) {
+                log.debug("사용자 정보 배치 조회 실패: userId={}, error={}", userId, e.getMessage());
+                userInfoMap.put(userId, new String[]{null, null});
+            }
+        }
+        
+        return userInfoMap;
+    }
+
     // ========================
     // 영상 생성 Job 관련 메서드
     // ========================
@@ -920,7 +957,9 @@ public class VideoService {
                     }
                 }
                 
-                // 검색 필터 (제목, 부서, 제작자)
+                // 검색 필터 (제목, 부서, 제작자) - 필터링 단계에서는 여전히 개별 조회 필요
+                // 주의: 검색 필터가 있는 경우에만 사용자 정보 조회가 필요하므로 N+1 문제 발생 가능
+                // 하지만 검색 필터는 선택적이므로, 대부분의 경우 N+1 문제는 없음
                 if (search != null && !search.isBlank()) {
                     String lowerSearch = search.toLowerCase();
                     Education education = educationRepository.findById(v.getEducationId()).orElse(null);
@@ -928,7 +967,7 @@ public class VideoService {
                     boolean matchesEducationTitle = education != null && education.getTitle() != null && 
                         education.getTitle().toLowerCase().contains(lowerSearch);
                     
-                    // 제작자 정보 검색
+                    // 제작자 정보 검색 (필터링 단계에서는 개별 조회)
                     boolean matchesCreator = false;
                     if (v.getCreatorUuid() != null) {
                         try {
@@ -998,6 +1037,14 @@ public class VideoService {
             pagedVideos.stream().map(EducationVideo::getEducationId).distinct().collect(Collectors.toList())
         ).stream().collect(Collectors.toMap(Education::getId, e -> e));
 
+        // 제작자 정보 배치 조회
+        List<UUID> creatorUuids = pagedVideos.stream()
+            .map(EducationVideo::getCreatorUuid)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .collect(Collectors.toList());
+        Map<UUID, String[]> userInfoMap = fetchUserInfoBatchFromInfraService(creatorUuids);
+
         // DTO 변환
         List<ReviewQueueItem> items = pagedVideos.stream()
             .map(v -> {
@@ -1036,12 +1083,12 @@ public class VideoService {
                     }
                 }
                 
-                // 제작자 정보 조회 (infra-service)
+                // 제작자 정보 조회 (배치 조회 결과 사용)
                 UUID creatorUuid = v.getCreatorUuid();
                 String creatorDepartment = null;
                 String creatorName = null;
                 if (creatorUuid != null) {
-                    String[] userInfo = fetchUserInfoFromInfraService(creatorUuid);
+                    String[] userInfo = userInfoMap.getOrDefault(creatorUuid, new String[]{null, null});
                     creatorDepartment = userInfo[0];
                     creatorName = userInfo[1];
                 }
@@ -1125,20 +1172,28 @@ public class VideoService {
 
         List<AuditHistoryItem> history = new ArrayList<>();
 
+        // 제작자 및 리뷰어 정보 배치 조회
+        List<UUID> userIds = new ArrayList<>();
+        UUID creatorUuid = video.getCreatorUuid();
+        if (creatorUuid != null) {
+            userIds.add(creatorUuid);
+        }
+        for (EducationVideoReview review : reviews) {
+            UUID reviewerUuid = review.getReviewerUuid();
+            if (reviewerUuid != null) {
+                userIds.add(reviewerUuid);
+            }
+        }
+        Map<UUID, String[]> userInfoMap = fetchUserInfoBatchFromInfraService(userIds);
+
         // 영상 생성 이벤트
         if (video.getCreatedAt() != null) {
             String creatorName = "SYSTEM";
-            UUID creatorUuid = video.getCreatorUuid();
             if (creatorUuid != null) {
-                try {
-                    String[] userInfo = fetchUserInfoFromInfraService(creatorUuid);
-                    String name = userInfo[1];
-                    if (name != null && !name.isBlank()) {
-                        creatorName = name;
-                    }
-                } catch (Exception e) {
-                    log.debug("제작자 정보 조회 실패 (감사 이력): videoId={}, creatorUuid={}, error={}", 
-                        videoId, creatorUuid, e.getMessage());
+                String[] userInfo = userInfoMap.getOrDefault(creatorUuid, new String[]{null, null});
+                String name = userInfo[1];
+                if (name != null && !name.isBlank()) {
+                    creatorName = name;
                 }
             }
             history.add(new AuditHistoryItem(
@@ -1157,15 +1212,10 @@ public class VideoService {
             String reviewerName = "REVIEWER";
             UUID reviewerUuid = review.getReviewerUuid();
             if (reviewerUuid != null) {
-                try {
-                    String[] userInfo = fetchUserInfoFromInfraService(reviewerUuid);
-                    String name = userInfo[1];
-                    if (name != null && !name.isBlank()) {
-                        reviewerName = name;
-                    }
-                } catch (Exception e) {
-                    log.debug("리뷰어 정보 조회 실패 (감사 이력): videoId={}, reviewerUuid={}, error={}", 
-                        videoId, reviewerUuid, e.getMessage());
+                String[] userInfo = userInfoMap.getOrDefault(reviewerUuid, new String[]{null, null});
+                String name = userInfo[1];
+                if (name != null && !name.isBlank()) {
+                    reviewerName = name;
                 }
             }
             history.add(new AuditHistoryItem(

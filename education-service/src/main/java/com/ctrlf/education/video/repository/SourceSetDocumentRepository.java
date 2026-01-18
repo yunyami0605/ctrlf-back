@@ -27,7 +27,7 @@ public interface SourceSetDocumentRepository extends JpaRepository<SourceSetDocu
     );
 
     /**
-     * 여러 소스셋 ID에 해당하는 문서 목록 한 번에 조회 (N+1 해결용).
+     * 여러 소스셋 ID에 해당하는 문서 목록 한 번에 조회
      */
     @Query("SELECT ssd FROM SourceSetDocument ssd JOIN FETCH ssd.sourceSet WHERE ssd.sourceSet.id IN :sourceSetIds")
     List<SourceSetDocument> findBySourceSetIdIn(@Param("sourceSetIds") java.util.Collection<UUID> sourceSetIds);

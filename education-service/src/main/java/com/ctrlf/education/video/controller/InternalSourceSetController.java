@@ -1,9 +1,10 @@
 package com.ctrlf.education.video.controller;
 
-import com.ctrlf.education.script.client.InfraRagClient;
 import com.ctrlf.education.script.dto.EducationScriptDto.RenderSpecResponse;
 import com.ctrlf.education.script.service.ScriptService;
 import com.ctrlf.education.video.dto.VideoDtos.InternalSourceSetDocumentsResponse;
+import com.ctrlf.education.video.dto.VideoDtos.S3DownloadRequest;
+import com.ctrlf.education.video.dto.VideoDtos.S3DownloadResponse;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetCompleteCallback;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetCompleteResponse;
 import com.ctrlf.education.video.service.SourceSetService;
@@ -17,12 +18,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import java.util.Map;
 import java.util.UUID;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +28,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestClient;
 
 /**
  * 소스셋 내부 API 컨트롤러 (FastAPI ↔ Spring).
@@ -48,7 +43,6 @@ public class InternalSourceSetController {
 
     private final SourceSetService sourceSetService;
     private final ScriptService scriptService;
-    private final InfraRagClient infraRagClient;
 
     /**
      * 스크립트 렌더 스펙 조회 (FastAPI → Spring).
@@ -235,66 +229,6 @@ public class InternalSourceSetController {
     public ResponseEntity<S3DownloadResponse> getS3PresignedUrl(
         @Valid @RequestBody S3DownloadRequest request
     ) {
-        String fileUrl = request.getFileUrl();
-        log.info("S3 Presigned URL 요청 수신: fileUrl={}", fileUrl);
-        
-        // infra-service의 /infra/files/presign/download API를 호출
-        String infraBaseUrl = infraRagClient.getBaseUrl();
-        String targetUrl = infraBaseUrl + "/infra/files/presign/download";
-        log.debug("Infra service 호출: baseUrl={}, targetUrl={}", infraBaseUrl, targetUrl);
-        
-        RestClient restClient = RestClient.builder()
-            .baseUrl(infraBaseUrl)
-            .build();
-
-        try {
-            Map<String, String> response = restClient.post()
-                .uri("/infra/files/presign/download")
-                .body(Map.of("fileUrl", fileUrl))
-                .retrieve()
-                .body(Map.class);
-
-            String downloadUrl = response != null ? (String) response.get("downloadUrl") : null;
-            if (downloadUrl == null) {
-                log.error("Infra service 응답에 downloadUrl 없음: response={}", response);
-                throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to get presigned URL from infra-service"
-                );
-            }
-
-            log.info("S3 Presigned URL 생성 성공: fileUrl={}, presignedUrl_length={}", 
-                fileUrl, downloadUrl != null ? downloadUrl.length() : 0);
-            return ResponseEntity.ok(new S3DownloadResponse(downloadUrl));
-        } catch (org.springframework.web.client.RestClientException e) {
-            log.error("Infra service 호출 실패: fileUrl={}, error={}", fileUrl, e.getMessage(), e);
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
-                "Failed to get presigned URL from infra-service: " + e.getMessage()
-            );
-        }
-    }
-
-    /**
-     * S3 Presigned URL 조회 요청 DTO.
-     */
-    @Getter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class S3DownloadRequest {
-        @NotBlank(message = "fileUrl은 필수입니다")
-        @Schema(description = "S3 파일 URL", example = "s3://bucket/docs/file.pdf")
-        private String fileUrl;
-    }
-
-    /**
-     * S3 Presigned URL 조회 응답 DTO.
-     */
-    @Getter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class S3DownloadResponse {
-        @Schema(description = "Presigned 다운로드 URL")
-        private String downloadUrl;
+        return ResponseEntity.ok(sourceSetService.getPresignedDownloadUrl(request.fileUrl()));
     }
 }

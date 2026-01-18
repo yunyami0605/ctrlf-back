@@ -168,7 +168,7 @@ public class AdminQuizService {
             })
             .collect(Collectors.toList());
 
-        // 교육 정보 조회 (N+1 문제 해결 - findAllById 사용)
+        // 교육 정보 조회
         Set<UUID> educationIds = latestVersionAttempts.stream()
             .map(QuizAttempt::getEducationId)
             .filter(id -> id != null)

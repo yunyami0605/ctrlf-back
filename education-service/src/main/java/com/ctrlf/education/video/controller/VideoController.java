@@ -1,8 +1,6 @@
 package com.ctrlf.education.video.controller;
 
 import com.ctrlf.education.video.dto.VideoDtos.JobItem;
-import com.ctrlf.education.video.dto.VideoDtos.VideoCompleteCallback;
-import com.ctrlf.education.video.dto.VideoDtos.VideoCompleteResponse;
 import com.ctrlf.education.video.dto.VideoDtos.VideoJobRequest;
 import com.ctrlf.education.video.dto.VideoDtos.VideoJobResponse;
 import com.ctrlf.education.video.dto.VideoDtos.VideoJobUpdateRequest;

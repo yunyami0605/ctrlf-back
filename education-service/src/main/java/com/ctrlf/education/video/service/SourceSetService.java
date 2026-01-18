@@ -6,6 +6,7 @@ import com.ctrlf.education.script.service.ScriptService;
 import com.ctrlf.education.video.client.SourceSetAiClient;
 import com.ctrlf.education.video.client.SourceSetAiDtos;
 import com.ctrlf.education.video.dto.VideoDtos.InternalSourceSetDocumentsResponse;
+import com.ctrlf.education.video.dto.VideoDtos.S3DownloadResponse;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetCompleteCallback;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetCompleteResponse;
 import com.ctrlf.education.video.dto.VideoDtos.SourceSetCreateRequest;
@@ -30,8 +31,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -356,7 +355,8 @@ public class SourceSetService {
      */
     @Transactional(readOnly = true)
     public InternalSourceSetDocumentsResponse getSourceSetDocuments(UUID sourceSetId) {
-        SourceSet sourceSet = sourceSetRepository.findByIdAndNotDeleted(sourceSetId)
+        // 소스셋 존재 여부 확인 (사용하지 않는 변수 제거)
+        sourceSetRepository.findByIdAndNotDeleted(sourceSetId)
             .orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.NOT_FOUND,
                 "소스셋을 찾을 수 없습니다: " + sourceSetId));
@@ -402,6 +402,25 @@ public class SourceSetService {
             sourceSetId.toString(),
             documentItems
         );
+    }
+
+    /**
+     * S3 Presigned 다운로드 URL 조회 (내부 API).
+     * FastAPI가 S3 URL을 presigned URL로 변환하기 위해 호출합니다.
+     * 
+     * @param fileUrl S3 파일 URL (s3://bucket/key 형식)
+     * @return Presigned 다운로드 URL 응답
+     */
+    @Transactional(readOnly = true)
+    public S3DownloadResponse getPresignedDownloadUrl(String fileUrl) {
+        log.info("S3 Presigned URL 조회 요청: fileUrl={}", fileUrl);
+        
+        String downloadUrl = infraRagClient.getPresignedDownloadUrl(fileUrl);
+        
+        log.info("S3 Presigned URL 생성 완료: fileUrl={}, presignedUrl_length={}", 
+            fileUrl, downloadUrl != null ? downloadUrl.length() : 0);
+        
+        return new S3DownloadResponse(downloadUrl);
     }
 
     /**

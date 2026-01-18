@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 영상 생성 내부 API 컨트롤러 (AI 서버 ↔ Spring).
- * 내부 서비스 간 통신용으로 X-Internal-Token 인증을 사용합니다.
  */
 @Tag(name = "Internal - Video", description = "영상 생성 내부 API (AI 서버 ↔ Spring)")
 @RestController

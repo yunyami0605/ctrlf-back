@@ -134,7 +134,7 @@ public class EducationService {
                 .collect(Collectors.groupingBy(doc -> doc.getSourceSet().getId()));
         }
 
-        // 8. 모든 문서 정보를 한 번에 조회 (N+1 해결 - 외부 API 호출 최소화)
+        // 8. 모든 문서 정보를 한 번에 조회
         Set<UUID> documentIds = new HashSet<>();
         for (List<SourceSetDocument> docs : docsBySourceSetId.values()) {
             if (!docs.isEmpty()) {
@@ -308,7 +308,7 @@ public class EducationService {
         List<EducationVideo> videos = educationVideoRepository.findByEducationIdAndStatusOrderByOrderIndexAscCreatedAtAsc(
             id, VideoStatus.PUBLISHED);
         
-        // 1. 모든 영상의 진행 정보를 한 번에 조회 (N+1 해결)
+        // 1. 모든 영상의 진행 정보를 한 번에 조회
         Set<UUID> videoIds = videos.stream().map(EducationVideo::getId).collect(Collectors.toSet());
         Map<UUID, EducationVideoProgress> progressByVideoId = new HashMap<>();
         if (userUuid.isPresent() && !videoIds.isEmpty()) {
@@ -319,7 +319,7 @@ public class EducationService {
             }
         }
 
-        // 2. 모든 SourceSetDocument를 한 번에 조회 (N+1 해결)
+        // 2. 모든 SourceSetDocument를 한 번에 조회
         Set<UUID> sourceSetIds = videos.stream()
             .map(EducationVideo::getSourceSetId)
             .filter(ssId -> ssId != null)
@@ -331,7 +331,7 @@ public class EducationService {
                 .collect(Collectors.groupingBy(doc -> doc.getSourceSet().getId()));
         }
 
-        // 3. 모든 문서 정보를 한 번에 조회 (N+1 해결 - 외부 API 호출 최소화)
+        // 3. 모든 문서 정보를 한 번에 조회
         Set<UUID> documentIds = new HashSet<>();
         for (List<SourceSetDocument> docs : docsBySourceSetId.values()) {
             if (!docs.isEmpty()) {
@@ -543,7 +543,7 @@ public class EducationService {
         int avg = 0;
         boolean allCompleted = false;
         if (!publishedVideos.isEmpty()) {
-            // 모든 PUBLISHED 영상의 진행 정보를 한 번에 조회 (N+1 해결)
+            // 모든 PUBLISHED 영상의 진행 정보를 한 번에 조회
             Set<UUID> publishedVideoIds = publishedVideos.stream()
                 .map(EducationVideo::getId)
                 .collect(Collectors.toSet());
@@ -627,7 +627,7 @@ public class EducationService {
             return result;
         }
         
-        // 3. 모든 PUBLISHED 영상의 진행 정보를 한 번에 조회 (N+1 해결)
+        // 3. 모든 PUBLISHED 영상의 진행 정보를 한 번에 조회
         Set<UUID> publishedVideoIds = publishedVideos.stream()
             .map(EducationVideo::getId)
             .collect(Collectors.toSet());

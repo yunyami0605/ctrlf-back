@@ -90,19 +90,19 @@ public interface EducationVideoRepository extends JpaRepository<EducationVideo, 
     List<EducationVideo> findRejectedVideos();
 
     /**
-     * 삭제되지 않은 모든 영상 조회 (N+1 해결용).
+     * 삭제되지 않은 모든 영상 조회
      */
     @Query("SELECT v FROM EducationVideo v WHERE v.deletedAt IS NULL ORDER BY v.orderIndex ASC, v.createdAt ASC")
     List<EducationVideo> findAllNotDeleted();
 
     /**
-     * 특정 상태의 삭제되지 않은 모든 영상 조회 (N+1 해결용).
+     * 특정 상태의 삭제되지 않은 모든 영상 조회
      */
     @Query("SELECT v FROM EducationVideo v WHERE v.status = :status AND v.deletedAt IS NULL ORDER BY v.orderIndex ASC, v.createdAt ASC")
     List<EducationVideo> findAllByStatusNotDeleted(@Param("status") VideoStatus status);
 
     /**
-     * 여러 교육의 특정 상태 영상 한 번에 조회 (N+1 해결용).
+     * 여러 교육의 특정 상태 영상 한 번에 조회
      */
     @Query("SELECT v FROM EducationVideo v WHERE v.educationId IN :educationIds AND v.status = :status AND v.deletedAt IS NULL ORDER BY v.orderIndex ASC, v.createdAt ASC")
     List<EducationVideo> findByEducationIdInAndStatus(@Param("educationIds") java.util.Collection<UUID> educationIds, @Param("status") VideoStatus status);

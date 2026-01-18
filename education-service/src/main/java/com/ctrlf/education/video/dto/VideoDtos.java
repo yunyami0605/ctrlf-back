@@ -622,4 +622,27 @@ public final class VideoDtos {
         @Schema(description = "진행률(%)") Integer progress_percent,
         @Schema(description = "영상 전체 길이(초)") Integer duration
     ) {}
+
+    // ========================
+    // S3 Presigned URL 관련 DTOs (내부 API용)
+    // ========================
+
+    /**
+     * S3 Presigned URL 조회 요청 (내부 API).
+     */
+    @Schema(description = "S3 Presigned 다운로드 URL 조회 요청 (내부 API)")
+    public record S3DownloadRequest(
+        @Schema(description = "S3 파일 URL", example = "s3://bucket/docs/file.pdf")
+        @NotBlank(message = "fileUrl은 필수입니다")
+        String fileUrl
+    ) {}
+
+    /**
+     * S3 Presigned URL 조회 응답 (내부 API).
+     */
+    @Schema(description = "S3 Presigned 다운로드 URL 조회 응답 (내부 API)")
+    public record S3DownloadResponse(
+        @Schema(description = "Presigned 다운로드 URL")
+        String downloadUrl
+    ) {}
 }
