@@ -272,13 +272,24 @@ management:
       probes:
         enabled: true
 
+# 로깅 설정 (운영 관점)
 logging:
+  charset:
+    console: UTF-8
+  file:
+    charset: UTF-8
+    name: logs/api-gateway.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 3GB
   level:
-    # 커스텀 로깅 필터만 INFO 레벨
+    root: INFO
     com.ctrlf.gateway.filter: INFO
-    # DEBUG 로그 비활성화
     org.springframework.cloud.gateway: INFO
     org.springframework.web.server.handler: INFO
     org.springframework.web.reactive.function.client: INFO
     org.springframework.cloud.gateway.filter.headers: WARN
     org.springframework.cloud.gateway.filter.handler: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

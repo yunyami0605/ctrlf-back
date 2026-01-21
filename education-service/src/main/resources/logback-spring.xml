@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- 콘솔 출력 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 파일 출력 (날짜별 로그 파일) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/education-service.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 날짜별 파일명 패턴 -->
+            <fileNamePattern>logs/education-service-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- 파일 크기 제한 (100MB) -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- 보관 기간 (30일) -->
+            <maxHistory>30</maxHistory>
+            <!-- 전체 크기 제한 (3GB) -->
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 루트 로거 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- 프로젝트 패키지 로그 레벨 -->
+    <logger name="com.ctrlf.education" level="DEBUG"/>
+    <logger name="com.ctrlf.education.client" level="DEBUG"/>
+    <logger name="org.springframework.web" level="INFO"/>
+</configuration>

@@ -47,3 +47,21 @@ ab-test:
   # OpenAI 모델 할당 비율 (0.0 ~ 1.0)
   # 예: 0.5 = 50:50, 0.7 = 70:30 (openai:sroberta)
   openai-ratio: 0.5
+
+# 로깅 설정 (운영 관점)
+logging:
+  charset:
+    console: UTF-8
+  file:
+    charset: UTF-8
+    name: logs/chat-service.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 3GB
+  level:
+    root: INFO
+    com.ctrlf.chat: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

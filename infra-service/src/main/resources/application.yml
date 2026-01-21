@@ -33,11 +33,23 @@ management:
       probes:
         enabled: true
 
+# 로깅 설정 (운영 관점)
 logging:
   charset:
     console: UTF-8
   file:
     charset: UTF-8
+    name: logs/infra-service.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 3GB
+  level:
+    root: INFO
+    com.ctrlf.infra: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 app:
   api:
