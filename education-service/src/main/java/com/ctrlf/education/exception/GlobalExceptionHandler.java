@@ -1,6 +1,9 @@
 package com.ctrlf.education.exception;
 
 import com.ctrlf.common.dto.ApiError;
+import com.ctrlf.common.exception.BusinessException;
+import com.ctrlf.common.exception.EntityNotFoundException;
+import com.ctrlf.common.exception.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -14,14 +17,51 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 
 /**
  * 교육 서비스 전역 예외 처리기.
- * - ResponseStatusException은 원래 상태코드로 그대로 반환
- * - Validation/타입 오류는 400
- * - 기타 예외는 500
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /**
+     * 공통 BusinessException 처리.
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiError> handleBusinessException(BusinessException ex) {
+        log.debug("Business exception: {}", ex.getMessage());
+
+        String error = ex.getStatus() != null 
+            ? ex.getStatus().getReasonPhrase() 
+            : "Bad Request";
+        return ResponseEntity.status(ex.getStatus() != null ? ex.getStatus() : HttpStatus.BAD_REQUEST)
+            .body(new ApiError(error, ex.getMessage()));
+    }
+
+    /**
+     * EntityNotFoundException 처리 (404).
+     * 도메인별 예외(EducationNotFoundException, VideoNotFoundException 등)도 포함.
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ApiError> handleEntityNotFound(EntityNotFoundException ex) {
+        log.debug("Entity not found: {}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ApiError("Not Found", ex.getMessage()));
+    }
+
+    /**
+     * 공통 ValidationException 처리 (400).
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ApiError> handleValidationException(ValidationException ex) {
+        log.debug("Validation exception: {}", ex.getMessage());
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ApiError("Bad Request", ex.getMessage()));
+    }
+
+    /**
+     * ResponseStatusException 처리.
+     */
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiError> handle(ResponseStatusException ex) {
         HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
