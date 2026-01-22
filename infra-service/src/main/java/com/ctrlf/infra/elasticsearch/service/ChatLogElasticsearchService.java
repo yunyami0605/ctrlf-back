@@ -111,51 +111,30 @@ public class ChatLogElasticsearchService {
      *
      * <p>Elasticsearch chat_log 인덱스에서 채팅 로그를 조회합니다.</p>
      *
-     * @param period 기간 (7 | 30 | 90)
-     * @param startDateStr 시작 날짜 (ISO 8601)
-     * @param endDateStr 종료 날짜 (ISO 8601)
-     * @param department 부서명 필터
-     * @param domain 도메인 필터
-     * @param route 라우트 필터
-     * @param model 모델명 필터
-     * @param onlyError 에러만 보기
-     * @param hasPiiOnly PII 포함만 보기
-     * @param page 페이지 번호
-     * @param size 페이지 크기
-     * @param sort 정렬 (예: createdAt,desc)
+     * @param request 로그 조회 요청 DTO
      * @return AI 로그 페이지 응답
      */
-    public AiLogDtos.PageResponse<AiLogDtos.LogListItem> getLogs(
-        String period,
-        String startDateStr,
-        String endDateStr,
-        String department,
-        String domain,
-        String route,
-        String model,
-        Boolean onlyError,
-        Boolean hasPiiOnly,
-        Integer page,
-        Integer size,
-        String sort
-    ) {
+    public AiLogDtos.PageResponse<AiLogDtos.LogListItem> getLogs(AiLogDtos.LogListRequest request) {
         try {
             log.info("[Elasticsearch 로그 조회] 요청: period={}, startDate={}, endDate={}, department={}, domain={}, route={}, model={}, onlyError={}, hasPiiOnly={}, page={}, size={}, sort={}",
-                period, startDateStr, endDateStr, department, domain, route, model, onlyError, hasPiiOnly, page, size, sort);
+                request.getPeriod(), request.getStartDate(), request.getEndDate(), request.getDepartment(), 
+                request.getDomain(), request.getRoute(), request.getModel(), request.getOnlyError(), 
+                request.getHasPiiOnly(), request.getPage(), request.getSize(), request.getSort());
 
             // 기간 계산
-            Instant[] periodRange = calculatePeriodRange(period, startDateStr, endDateStr);
+            Instant[] periodRange = calculatePeriodRange(request.getPeriod(), request.getStartDate(), request.getEndDate());
             Instant startDate = periodRange[0];
             Instant endDate = periodRange[1];
 
             // 페이징 설정
-            int pageNumber = (page != null && page >= 0) ? page : 0;
-            int pageSize = (size != null && size > 0) ? Math.min(size, 100) : 20;
+            int pageNumber = (request.getPage() != null && request.getPage() >= 0) ? request.getPage() : 0;
+            int pageSize = (request.getSize() != null && request.getSize() > 0) ? Math.min(request.getSize(), 100) : 20;
             int from = pageNumber * pageSize;
 
             // 정렬 설정 (final 변수로 선언)
             final String finalSortField;
             final String finalSortOrder;
+            String sort = request.getSort();
             if (sort != null && !sort.isBlank()) {
                 String[] sortParts = sort.split(",");
                 if (sortParts.length > 0) {
@@ -188,6 +167,12 @@ public class ChatLogElasticsearchService {
             ));
 
             // 부서 필터
+            String department = request.getDepartment();
+            if (department != null && !department.isBlank()) {
+                boolQueryBuilder.must(Query.of(q -> q
+                    .term(t -> t.field("department").value(department))
+                ));
+            }
             if (department != null && !department.isBlank()) {
                 boolQueryBuilder.must(Query.of(q -> q
                     .term(t -> t.field("department").value(department))
@@ -195,6 +180,7 @@ public class ChatLogElasticsearchService {
             }
 
             // 도메인 필터
+            String domain = request.getDomain();
             if (domain != null && !domain.isBlank()) {
                 boolQueryBuilder.must(Query.of(q -> q
                     .term(t -> t.field("domain").value(domain))
@@ -202,6 +188,7 @@ public class ChatLogElasticsearchService {
             }
 
             // 라우트 필터
+            String route = request.getRoute();
             if (route != null && !route.isBlank()) {
                 boolQueryBuilder.must(Query.of(q -> q
                     .term(t -> t.field("route").value(route))
@@ -209,6 +196,7 @@ public class ChatLogElasticsearchService {
             }
 
             // 모델 필터 (modelName 필드 사용)
+            String model = request.getModel();
             if (model != null && !model.isBlank()) {
                 boolQueryBuilder.must(Query.of(q -> q
                     .term(t -> t.field("modelName").value(model))
@@ -216,6 +204,7 @@ public class ChatLogElasticsearchService {
             }
 
             // 에러만 보기 필터
+            Boolean onlyError = request.getOnlyError();
             if (onlyError != null && onlyError) {
                 boolQueryBuilder.must(Query.of(q -> q
                     .exists(e -> e.field("errorCode"))
@@ -223,6 +212,7 @@ public class ChatLogElasticsearchService {
             }
 
             // PII 포함만 보기 필터
+            Boolean hasPiiOnly = request.getHasPiiOnly();
             if (hasPiiOnly != null && hasPiiOnly) {
                 boolQueryBuilder.must(Query.of(q -> q
                     .bool(b -> b

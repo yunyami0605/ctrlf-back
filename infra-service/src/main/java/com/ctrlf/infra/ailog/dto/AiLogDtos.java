@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -114,6 +116,72 @@ public final class AiLogDtos {
         private Integer totalPages;
         private Integer page;
         private Integer size;
+    }
+
+    /**
+     * 관리자 대시보드 로그 목록 조회 요청
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class LogListRequest {
+        @Schema(description = "기간 (7 | 30 | 90)", example = "30")
+        private String period;
+
+        @Schema(description = "시작 날짜 (ISO 8601)", example = "2025-12-06T15:00:00.000Z")
+        private String startDate;
+
+        @Schema(description = "종료 날짜 (ISO 8601)", example = "2026-01-06T14:59:59.999Z")
+        private String endDate;
+
+        @Schema(description = "부서명", example = "총무팀")
+        private String department;
+
+        @Schema(description = "도메인 ID", example = "SECURITY")
+        private String domain;
+
+        @Schema(description = "라우트 ID", example = "RAG")
+        private String route;
+
+        @Schema(description = "모델 ID", example = "gpt-4o-mini")
+        private String model;
+
+        @Schema(description = "에러만 보기", example = "false")
+        private Boolean onlyError;
+
+        @Schema(description = "PII 포함만 보기", example = "false")
+        private Boolean hasPiiOnly;
+
+        @Schema(description = "페이지 번호 (기본값: 0)", example = "0")
+        private Integer page;
+
+        @Schema(description = "페이지 크기 (기본값: 20)", example = "20")
+        private Integer size;
+
+        @Schema(description = "정렬 (예: createdAt,desc)", example = "createdAt,desc")
+        private String sort;
+
+        /**
+         * 기본값 적용 및 검증
+         */
+        public void applyDefaults() {
+            if (this.page == null || this.page < 0) {
+                this.page = 0;
+            }
+            if (this.size == null || this.size <= 0) {
+                this.size = 20;
+            }
+        }
+
+        /**
+         * period 검증
+         */
+        public boolean isValidPeriod() {
+            if (period == null) {
+                return true; // null은 허용
+            }
+            return period.equals("7") || period.equals("30") || period.equals("90");
+        }
     }
 }
 

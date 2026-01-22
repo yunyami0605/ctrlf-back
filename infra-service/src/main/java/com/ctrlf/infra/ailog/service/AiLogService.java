@@ -277,38 +277,14 @@ public class AiLogService {
      * <p>백엔드에서 채팅 메시지 저장 시 자동으로 저장된 로그를 조회합니다.</p>
      */
     @Transactional(readOnly = true)
-    public AiLogDtos.PageResponse<AiLogDtos.LogListItem> getLogs(
-        String period,
-        String startDateStr,
-        String endDateStr,
-        String department,
-        String domain,
-        String route,
-        String model,
-        Boolean onlyError,
-        Boolean hasPiiOnly,
-        Integer page,
-        Integer size,
-        String sort
-    ) {
+    public AiLogDtos.PageResponse<AiLogDtos.LogListItem> getLogs(AiLogDtos.LogListRequest request) {
         log.info("[AI 로그 조회] Elasticsearch에서 조회: period={}, startDate={}, endDate={}, department={}, domain={}, route={}, model={}, onlyError={}, hasPiiOnly={}, page={}, size={}, sort={}",
-            period, startDateStr, endDateStr, department, domain, route, model, onlyError, hasPiiOnly, page, size, sort);
+            request.getPeriod(), request.getStartDate(), request.getEndDate(), request.getDepartment(), 
+            request.getDomain(), request.getRoute(), request.getModel(), request.getOnlyError(), 
+            request.getHasPiiOnly(), request.getPage(), request.getSize(), request.getSort());
 
         // Elasticsearch에서 조회 (실시간 채팅 로그)
-        return chatLogElasticsearchService.getLogs(
-            period,
-            startDateStr,
-            endDateStr,
-            department,
-            domain,
-            route,
-            model,
-            onlyError,
-            hasPiiOnly,
-            page,
-            size,
-            sort
-        );
+        return chatLogElasticsearchService.getLogs(request);
     }
 
     /**

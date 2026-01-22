@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,9 +33,6 @@ public class TelemetryController {
 
     /**
      * 텔레메트리 이벤트 수집
-     * 
-     * <p>AI가 생성한 구조화 이벤트를 배치로 수집합니다.</p>
-     * <p>Idempotent: 중복 eventId는 무시됩니다.</p>
      */
     @PostMapping("/events")
     @Operation(
