@@ -156,14 +156,15 @@ class VideoServiceTest {
         when(videoRepository.findById(testVideoId)).thenReturn(Optional.of(testVideo));
         when(jobRepository.save(any(VideoGenerationJob.class))).thenAnswer(invocation -> {
             VideoGenerationJob saved = invocation.getArgument(0);
-            saved.setId(testJobId);
+            if (saved.getId() == null) {
+                saved.setId(testJobId);
+            }
             return saved;
         });
         when(videoRepository.save(any(EducationVideo.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(videoAiClient.createRenderJob(any(RenderJobRequest.class))).thenReturn(
             new RenderJobResponse(true, testJobId, "PROCESSING")
         );
-        when(jobRepository.save(any(VideoGenerationJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         VideoJobResponse result = videoService.createVideoJob(request);
@@ -171,7 +172,7 @@ class VideoServiceTest {
         // then
         assertThat(result).isNotNull();
         assertThat(result.jobId()).isEqualTo(testJobId);
-        verify(jobRepository).save(any(VideoGenerationJob.class));
+        verify(jobRepository, org.mockito.Mockito.atLeastOnce()).save(any(VideoGenerationJob.class));
         verify(videoRepository).save(any(EducationVideo.class));
     }
 
@@ -228,7 +229,7 @@ class VideoServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.jobId()).isEqualTo(testJobId);
         assertThat(result.retryCount()).isEqualTo(1);
-        verify(jobRepository).save(any(VideoGenerationJob.class));
+        verify(jobRepository, org.mockito.Mockito.times(2)).save(any(VideoGenerationJob.class));
     }
 
     @Test

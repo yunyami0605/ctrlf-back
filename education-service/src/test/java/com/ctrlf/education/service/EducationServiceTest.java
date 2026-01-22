@@ -10,12 +10,9 @@ import com.ctrlf.education.repository.EducationRepository;
 import com.ctrlf.education.script.client.InfraRagClient;
 import com.ctrlf.education.video.dto.VideoDtos.VideoStatus;
 import com.ctrlf.education.video.entity.EducationVideo;
-import com.ctrlf.education.video.entity.EducationVideoProgress;
 import com.ctrlf.education.video.repository.EducationVideoProgressRepository;
 import com.ctrlf.education.video.repository.EducationVideoRepository;
 import com.ctrlf.education.video.repository.SourceSetDocumentRepository;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +24,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,7 +105,6 @@ class EducationServiceTest {
             .thenReturn(Collections.emptyList());
         when(educationVideoProgressRepository.findByUserUuidAndEducationIdIn(any(), anyCollection()))
             .thenReturn(Collections.emptyList());
-        when(sourceSetDocumentRepository.findBySourceSetIdIn(anyCollection())).thenReturn(Collections.emptyList());
 
         // when
         List<EducationResponses.EducationListItem> result = educationService.getEducationsMe(
@@ -131,7 +126,6 @@ class EducationServiceTest {
             eq(testEducationId), eq(VideoStatus.PUBLISHED))).thenReturn(List.of(testVideo));
         when(educationVideoProgressRepository.findByUserUuidAndEducationIdAndVideoIdIn(
             any(), eq(testEducationId), anyCollection())).thenReturn(Collections.emptyList());
-        when(sourceSetDocumentRepository.findBySourceSetIdIn(anyCollection())).thenReturn(Collections.emptyList());
 
         // when
         EducationResponses.EducationVideosResponse result = educationService.getEducationVideos(
@@ -171,9 +165,10 @@ class EducationServiceTest {
         when(educationVideoProgressRepository.findByUserUuidAndEducationIdAndVideoId(
             testUserId, testEducationId, testVideoId)).thenReturn(Optional.empty());
         when(educationVideoProgressRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(educationProgressRepository.findByUserUuidAndEducationId(any(), any()))
-            .thenReturn(Optional.empty());
-        when(educationProgressRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(educationVideoRepository.findByEducationIdAndStatusOrderByOrderIndexAscCreatedAtAsc(
+            eq(testEducationId), eq(VideoStatus.PUBLISHED))).thenReturn(List.of(testVideo));
+        when(educationVideoProgressRepository.findByUserUuidAndEducationIdAndVideoIdIn(
+            eq(testUserId), eq(testEducationId), anyCollection())).thenReturn(Collections.emptyList());
 
         // when
         EducationResponses.VideoProgressResponse result = educationService.updateVideoProgress(
