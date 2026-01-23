@@ -1,5 +1,6 @@
 package com.ctrlf.infra.s3.service;
 
+import com.ctrlf.infra.config.metrics.CustomMetrics;
 import java.net.URL;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -29,23 +31,26 @@ class S3ServiceTest {
     @Mock
     private S3Presigner presigner;
 
+    @Mock
+    private CustomMetrics customMetrics;
+
     private S3Service s3Service;
 
     private String testBucket;
-    private String testKey;
 
     @BeforeEach
     void setUp() {
         testBucket = "test-bucket";
-        testKey = "docs/test-file.pdf";
         
         // S3Service 생성 (생성자 주입)
         s3Service = new S3Service(
             presigner,
-            testBucket,
+            customMetrics,
             36000L,  // ttlSeconds
             43200L   // downloadTtlSeconds
         );
+        
+        ReflectionTestUtils.setField(s3Service, "defaultBucket", testBucket);
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.ctrlf.chat.dto.request.ChatSessionUpdateRequest;
 import com.ctrlf.chat.dto.response.ChatSessionHistoryResponse;
 import com.ctrlf.chat.dto.response.ChatSessionResponse;
 // import com.ctrlf.chat.dto.summary.ChatSessionSummaryResponse; // ⚠️ session-summary 기능 주석 처리로 인해 사용 안 함
+import com.ctrlf.chat.config.metrics.CustomMetrics;
 import com.ctrlf.chat.entity.ChatMessage;
 import com.ctrlf.chat.entity.ChatSession;
 import com.ctrlf.chat.exception.chat.ChatSessionNotFoundException;
@@ -26,6 +27,7 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final CustomMetrics customMetrics;
 
     // ⚠️ AI 요약용 Client (현재 사용 안 함 - session-summary 기능 주석 처리)
     // private final ChatAiClient chatAiClient;
@@ -39,6 +41,9 @@ public class ChatSessionServiceImpl implements ChatSessionService {
         // 모델은 Frontend에서 POST /api/chat/sessions/{sessionId}/model로 설정
 
         ChatSession saved = chatSessionRepository.save(session);
+
+        // 메트릭 기록
+        customMetrics.incrementChatSessionsCreated();
 
         return new ChatSessionResponse(
             saved.getId(),

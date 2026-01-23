@@ -18,8 +18,8 @@ public class SecurityConfig {
             .authorizeExchange(exchange -> exchange
                 // CORS preflight 요청 허용
                 .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Actuator 엔드포인트 허용
-                .pathMatchers("/actuator/health", "/actuator/info").permitAll()
+                // Actuator 엔드포인트 허용 (모니터링용)
+                .pathMatchers("/actuator/health", "/actuator/info", "/actuator/metrics", "/actuator/prometheus").permitAll()
                 // 내부 API는 인증 우회 (내부 서비스 간 통신용)
                 // X-Internal-Token 헤더로 인증하는 것은 각 서비스에서 처리
                 .pathMatchers("/internal/**").permitAll()

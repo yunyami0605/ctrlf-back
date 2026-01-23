@@ -10,7 +10,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import com.ctrlf.infra.config.metrics.CustomMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +29,7 @@ public class TelemetryService {
 
     private final TelemetryEventRepository telemetryEventRepository;
     private final ObjectMapper objectMapper;
+    private final CustomMetrics customMetrics;
 
     /**
      * 텔레메트리 이벤트 수집 (배치 처리, Idempotent)
@@ -79,6 +80,9 @@ public class TelemetryService {
                     eventItem.getEventId(), e.getMessage());
             }
         }
+
+        // 메트릭 기록
+        customMetrics.incrementTelemetryEventsCollected(accepted);
 
         return new TelemetryDtos.TelemetryEventResponse(received, accepted, rejected, errors);
     }

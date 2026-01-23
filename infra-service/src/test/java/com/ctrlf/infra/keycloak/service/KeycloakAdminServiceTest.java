@@ -1,5 +1,6 @@
 package com.ctrlf.infra.keycloak.service;
 
+import com.ctrlf.infra.config.metrics.CustomMetrics;
 import com.ctrlf.infra.keycloak.KeycloakAdminClient;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,6 +27,9 @@ class KeycloakAdminServiceTest {
 
     @Mock
     private KeycloakAdminClient client;
+
+    @Mock
+    private CustomMetrics customMetrics;
 
     @InjectMocks
     private KeycloakAdminService keycloakAdminService;

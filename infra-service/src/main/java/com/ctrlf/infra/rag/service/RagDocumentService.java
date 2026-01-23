@@ -12,6 +12,7 @@ import com.ctrlf.infra.rag.repository.RagFailChunkRepository;
 import com.ctrlf.infra.rag.repository.RagDocumentRepository;
 import com.ctrlf.infra.rag.repository.RagDocumentHistoryRepository;
 import com.ctrlf.infra.rag.entity.RagDocumentHistory;
+import com.ctrlf.infra.config.metrics.CustomMetrics;
 import com.ctrlf.infra.s3.service.S3Service;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -54,6 +55,7 @@ public class RagDocumentService {
     private final RagDocumentHistoryRepository historyRepository;
     private final RagAiClient ragAiClient;
     private final S3Service s3Service;
+    private final CustomMetrics customMetrics;
 
     /**
      * 문서 업로드 메타를 저장하고 초기 상태를 반환합니다.
@@ -72,6 +74,9 @@ public class RagDocumentService {
         d.setStatus(RagDocumentStatus.QUEUED);
         d.setCreatedAt(Instant.now());
         d = documentRepository.save(d);
+
+        // 메트릭 기록
+        customMetrics.incrementRagDocumentsProcessed("upload");
 
         return new UploadResponse(
             d.getId().toString(),
@@ -127,6 +132,10 @@ public class RagDocumentService {
                     d.getId(), d.getDocumentId(), e.getMessage());
             }
         }
+        
+        // 메트릭 기록
+        customMetrics.incrementRagDocumentsProcessed("update");
+        
         return new UpdateResponse(d.getId().toString(), "REPROCESSING", now);
     }
 
@@ -138,6 +147,10 @@ public class RagDocumentService {
         chunkRepository.deleteByDocumentId(id);
         failChunkRepository.deleteByDocumentId(id);
         documentRepository.delete(d);
+        
+        // 메트릭 기록
+        customMetrics.incrementRagDocumentsProcessed("delete");
+        
         return new DeleteResponse(id.toString(), "DELETED", Instant.now().toString());
     }
 
@@ -197,6 +210,9 @@ public class RagDocumentService {
                     d.getId(), d.getDocumentId(), e.getMessage());
             }
         }
+        // 메트릭 기록
+        customMetrics.incrementRagDocumentsProcessed("reprocess");
+        
         // ReprocessResponse는 기존 API 스펙 유지 (accepted, jobId 필드)
         // received → accepted, requestId → jobId로 매핑
         return new ReprocessResponse(id.toString(), received, status.name(), 

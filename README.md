@@ -48,6 +48,8 @@ docker compose logs -f postgres
 AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=dev,local-seed,keycloak-setup ./gradlew :infra-service:bootRun
 AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=dev,local-seed,keycloak-setup ./gradlew :education-service:bootRun
 
+AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=dev,local-seed,keycloak-setup ./gradlew :education-service:test :education-service:bootRun
+
 # 프로덕션 환경: 기존 데이터는 유지하고 없는 데이터만 추가합니다
 AWS_PROFILE=sk_4th_team04 SPRING_PROFILES_ACTIVE=prod,prod-seed ./gradlew :education-service:bootRun
 
@@ -71,6 +73,8 @@ AWS_PROFILE=sk_4th_team04 ./gradlew :api-gateway:bootRun
 | Chat      | http://localhost:9005/swagger-ui.html | http://localhost:9005/v3/api-docs |
 | Education | http://localhost:9002/swagger-ui.html | http://localhost:9002/v3/api-docs |
 | Infra     | http://localhost:9003/swagger-ui.html | http://localhost:9003/v3/api-docs |
+접속: http://localhost:9090
+http://localhost:3000
 
 - springdoc 2.x 사용 중이며, 일부 환경에서는 `/swagger-ui/index.html` 경로를 사용하기도 합니다.
 - 공통 OpenAPI 설정(`libs/common-utils`)에서 보안 스키마(JWT Bearer) 사용을 켜고 끌 수 있습니다(`app.api.security.enabled`).

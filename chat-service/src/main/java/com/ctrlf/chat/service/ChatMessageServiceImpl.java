@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.ctrlf.chat.config.metrics.CustomMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final com.ctrlf.chat.elasticsearch.service.FaqLogElasticsearchService faqLogElasticsearchService;
     private final com.ctrlf.chat.elasticsearch.service.ChatLogElasticsearchService chatLogElasticsearchService;
     private final ChatAiClient chatAiClient;
+    private final CustomMetrics customMetrics;
 
     @Override
     public ChatMessageSendResponse sendMessage(
@@ -117,6 +119,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             fallbackMessage.setResponseTimeMs(responseTime);
             fallbackMessage.setIsError(true);
             chatMessageRepository.save(fallbackMessage);
+
+            // 메트릭 기록
+            customMetrics.incrementChatMessagesSent();
 
             return new ChatMessageSendResponse(
                 fallbackMessage.getId(),

@@ -25,13 +25,20 @@ spring:
 management:
   endpoints:
     web:
-      base-path: /
+      base-path: /actuator
       exposure:
-        include: health
+        include: health,metrics,prometheus,info
   endpoint:
     health:
       probes:
         enabled: true
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: infra-service
 
 # 로깅 설정 (운영 관점)
 logging:

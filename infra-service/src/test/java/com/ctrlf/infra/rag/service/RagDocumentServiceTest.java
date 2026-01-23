@@ -1,6 +1,7 @@
 package com.ctrlf.infra.rag.service;
 
 import static com.ctrlf.infra.rag.dto.RagDtos.*;
+import com.ctrlf.infra.config.metrics.CustomMetrics;
 import com.ctrlf.infra.rag.entity.RagDocument;
 import com.ctrlf.infra.rag.entity.RagDocumentStatus;
 import com.ctrlf.infra.rag.repository.RagDocumentChunkRepository;
@@ -58,6 +59,9 @@ class RagDocumentServiceTest {
 
     @Mock
     private S3Service s3Service;
+
+    @Mock
+    private CustomMetrics customMetrics;
 
     @InjectMocks
     private RagDocumentService ragDocumentService;

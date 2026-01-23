@@ -1,5 +1,6 @@
 package com.ctrlf.infra.s3.service;
 
+import com.ctrlf.infra.config.metrics.CustomMetrics;
 import java.net.URL;
 import java.time.Duration;
 import java.util.UUID;
@@ -20,18 +21,22 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 public class S3Service {
 
     private final S3Presigner presigner;
-    private final String defaultBucket;
+    private final CustomMetrics customMetrics;
+    
+    @Value("${app.s3.bucket:}")
+    private String defaultBucket;
+    
     private final Duration ttl;
     private final Duration downloadTtl;
 
     public S3Service(
         S3Presigner presigner,
-        @Value("${app.s3.bucket:}") String defaultBucket,
+        CustomMetrics customMetrics,
         @Value("${app.s3.ttlSeconds:36000}") long ttlSeconds,
         @Value("${app.s3.downloadTtlSeconds:43200}") long downloadTtlSeconds
     ) {
         this.presigner = presigner;
-        this.defaultBucket = defaultBucket;
+        this.customMetrics = customMetrics;
         this.ttl = Duration.ofSeconds(ttlSeconds);
         this.downloadTtl = Duration.ofSeconds(downloadTtlSeconds);
     }
@@ -54,7 +59,12 @@ public class S3Service {
             .signatureDuration(ttl)
             .putObjectRequest(putReq)
             .build();
-        return presigner.presignPutObject(presignReq).url();
+        URL url = presigner.presignPutObject(presignReq).url();
+        
+        // 메트릭 기록
+        customMetrics.incrementS3PresignedUrlsGenerated("upload");
+        
+        return url;
     }
 
     /**
@@ -79,6 +89,10 @@ public class S3Service {
             .build();
         URL uploadUrl = presigner.presignPutObject(presignReq).url();
         String fileUrl = "s3://" + path.bucket() + "/" + path.key();
+        
+        // 메트릭 기록
+        customMetrics.incrementS3PresignedUrlsGenerated("upload");
+        
         return new PresignUploadResult(uploadUrl, fileUrl);
     }
 
@@ -115,7 +129,12 @@ public class S3Service {
             .signatureDuration(expiration)
             .getObjectRequest(getReq)
             .build();
-        return presigner.presignGetObject(presignReq).url();
+        URL url = presigner.presignGetObject(presignReq).url();
+        
+        // 메트릭 기록
+        customMetrics.incrementS3PresignedUrlsGenerated("download");
+        
+        return url;
     }
 
     /**

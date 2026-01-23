@@ -1,5 +1,6 @@
 package com.ctrlf.education.service;
 
+import com.ctrlf.education.config.metrics.CustomMetrics;
 import com.ctrlf.education.dto.EducationRequests.VideoProgressUpdateRequest;
 import com.ctrlf.education.dto.EducationResponses;
 import com.ctrlf.education.entity.Education;
@@ -57,6 +58,9 @@ class EducationServiceTest {
 
     @Mock
     private SourceSetDocumentRepository sourceSetDocumentRepository;
+
+    @Mock
+    private CustomMetrics customMetrics;
 
     @InjectMocks
     private EducationService educationService;

@@ -36,6 +36,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import com.ctrlf.education.config.metrics.CustomMetrics;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,7 @@ public class EducationService {
     private final EducationProgressRepository educationProgressRepository;
     private final InfraRagClient infraRagClient;
     private final SourceSetDocumentRepository sourceSetDocumentRepository;
+    private final CustomMetrics customMetrics;
 
     /**
      * 사용자 기준 교육 및 영상 목록 집계.
@@ -289,6 +291,9 @@ public class EducationService {
                 videoItems
             ));
         }
+        // 메트릭 기록
+        customMetrics.incrementEducationViews();
+
         return result;
     }
     
@@ -431,7 +436,10 @@ public class EducationService {
                 sourceFileUrl
             ));
         }
-        // 목록 응답 생성
+        
+        // 메트릭 기록
+        customMetrics.incrementVideoPlays();
+
         return EducationVideosResponse.builder()
             .id(e.getId())
             .title(e.getTitle())
@@ -590,6 +598,9 @@ public class EducationService {
         }
         
         // 응답 DTO 구성
+        // 메트릭 기록
+        customMetrics.incrementVideoProgressUpdates();
+
         return VideoProgressResponse.builder()
             .updated(true)
             .progress(pct)
