@@ -12,7 +12,9 @@ spring:
 
 keycloak:
   admin:
-    base-url: http://keycloak-service:8090
+    # Keycloak is configured with KC_HTTP_RELATIVE_PATH=/auth (see k8s keycloak deployment),
+    # so endpoints are served under /auth.
+    base-url: http://keycloak-service:8090/auth
     realm: ctrlf
     client-id: infra-admin
     client-secret: changeme

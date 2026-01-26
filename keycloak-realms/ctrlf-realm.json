@@ -95,8 +95,13 @@
       "protocol": "openid-connect",
       "publicClient": true,
       "standardFlowEnabled": true,
-      "redirectUris": ["http://localhost:5173/", "http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"],
+      "redirectUris": [
+        "http://localhost:5173/",
+        "http://localhost:5173/*",
+        "https://dzae8ci1t5c4l.cloudfront.net/",
+        "https://dzae8ci1t5c4l.cloudfront.net/*"
+      ],
+      "webOrigins": ["http://localhost:5173", "https://dzae8ci1t5c4l.cloudfront.net"],
       "attributes": {
         "backchannel.logout.session.required": "false",
         "display.on.consent.screen": "false",

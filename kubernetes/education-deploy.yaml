@@ -30,7 +30,7 @@ spec:
             - name: SPRING_DATASOURCE_PASSWORD
               value: "keycloak"
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-              value: "https://8bang-ctrlf.com/auth/realms/ctrlf"
+              value: "https://dzae8ci1t5c4l.cloudfront.net/auth/realms/ctrlf"
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
               value: "http://keycloak-service:8090/auth/realms/ctrlf/protocol/openid-connect/certs"
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO

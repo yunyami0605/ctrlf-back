@@ -65,16 +65,26 @@ spec:
           value: "true"
         - name: KC_ADMIN_HTTP_ENABLED
           value: "true"
+        # Reverse proxy(CloudFront/ALB/Nginx) 뒤에서 URL(issuer, redirect)을 올바르게 생성하려면
+        # X-Forwarded-* 헤더 파싱을 활성화해야 합니다. (KC_PROXY=edge만으로는 부족한 경우가 많음)
+        - name: KC_PROXY_HEADERS
+          value: "xforwarded"
+
+        # 도메인 미구매 환경: CloudFront 기본 도메인을 "외부 기준 URL"로 고정합니다.
+        # Keycloak hostname(v2)에서는 KC_HOSTNAME에 전체 URL(https 포함)을 줄 수 있습니다.
+        # 참고: https://www.keycloak.org/server/hostname
         - name: KC_HOSTNAME
-          value: "8bang-ctrlf.com"
+          value: "https://dzae8ci1t5c4l.cloudfront.net"
+        - name: KC_HOSTNAME_ADMIN
+          value: "https://dzae8ci1t5c4l.cloudfront.net"
+        - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+          value: "false"
         - name: KC_HOSTNAME_STRICT
-          value: "false"
-        - name: KC_PROXY
-          value: "edge"
+          value: "true"
         - name: KC_HOSTNAME_STRICT_HTTPS
-          value: "false"
+          value: "true"
         - name: KC_HOSTNAME_ADMIN_STRICT_HTTPS
-          value: "false"
+          value: "true"
         - name: KC_HTTP_RELATIVE_PATH
           value: "/auth"
         - name: KC_HTTP_PORT
