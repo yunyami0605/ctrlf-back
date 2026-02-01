@@ -16,9 +16,17 @@
 
 ## 스크린샷
 
-| AI 챗봇 | 교육 영상 컨텐츠 제작 | 관리자 대시보드 |
-|:-------:|:--------------------:|:--------------:|
-| ![AI 챗봇](./docs/readme/1.png) | ![교육 영상 컨텐츠 제작](./docs/readme/2.png) | ![관리자 대시보드](./docs/readme/3.png) |
+### AI 챗봇
+
+![AI 챗봇](./docs/readme/1.png)
+
+### 교육 영상 컨텐츠 제작
+
+![교육 영상 컨텐츠 제작](./docs/readme/2.png)
+
+### 관리자 대시보드
+
+![관리자 대시보드](./docs/readme/3.png)
 
 ---
 
@@ -47,7 +55,7 @@
 
 ## 시스템 아키텍처
 
-![AWS 아키텍처](./docs/readme/4.png)
+<img src="./docs/readme/4.png" alt="AWS 아키텍처" width="100%" />
 
 - **구조**: MSA. 트래픽은 **IGW → ALB → EKS Ingress**로 유입되고, 경로 기반 라우팅으로 각 서비스로 분기됩니다.
 - **서비스 구성**:
@@ -58,11 +66,11 @@
 - **공통 인프라**: PostgreSQL(5432), Keycloak(8090).
 
 ```
-User → CloudFront → ALB → EKS Ingress → api-gateway
+User → ALB → EKS Ingress → api-gateway
                                         ├→ chat-service
                                         ├→ education-service
                                         └→ infra-service
-                                                    ↓ (필요 시)
+                                                    ↓
                                             On‑prem LLM / RAG (VPN)
 ```
 
